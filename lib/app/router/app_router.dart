@@ -6,6 +6,7 @@ import '../../controllers/auth_controller.dart';
 import '../../screens/authentication/login_screen.dart';
 import '../../screens/home/home_screen.dart';
 import '../../screens/inspection/inspection_screen.dart';
+import '../../screens/inspection/inspection_success_screen.dart';
 import '../../screens/inspection/vehicle_details_screen.dart';
 import '../../screens/profile/profile_screen.dart';
 import '../../screens/reports/reports_screen.dart';
@@ -21,6 +22,7 @@ class RouteNames {
   static const profile = 'profile';
   static const vehicleDetails = 'vehicleDetails';
   static const inspection = 'inspection';
+  static const inspectionSuccess = 'inspectionSuccess';
 }
 
 // --- Route paths ---
@@ -32,6 +34,7 @@ class RoutePaths {
   static const profile = '/profile';
   static const vehicleDetails = '/vehicle-details';
   static const inspection = '/inspection';
+  static const inspectionSuccess = '/inspection/success';
 }
 
 /// Bridges Riverpod auth state → GoRouter (re-runs redirect on auth change).
@@ -110,6 +113,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: RoutePaths.inspection,
         name: RouteNames.inspection,
         builder: (_, _) => const InspectionScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.inspectionSuccess,
+        name: RouteNames.inspectionSuccess,
+        builder: (_, state) =>
+            InspectionSuccessScreen(args: state.extra as InspectionSuccessArgs?),
       ),
     ],
     errorBuilder: (context, state) => Scaffold(
