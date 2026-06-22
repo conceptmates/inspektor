@@ -104,3 +104,35 @@ Legend: ⬜ todo · 🟦 in progress · ✅ done
 | GET /dynamic-inspections?page= | `inspectionHistory` | | |
 | GET /dynamic-inspections/my-history?page= | `myHistory` | | |
 | GET /dynamic-inspections/stats | `inspectionStats` | | |
+
+---
+
+## Exact-UI migration + scope update (post git-pull reconcile)
+
+The old app was re-pulled (merged `feat/refactor`): core screens' UI unchanged; new
+real **Attendance/Leaves** feature added. Decisions revised from the original plan:
+
+- **Theme:** NOT dark-only. The app is **light (CarSpy)** for home/reports/attendance/
+  profile; the **inspection capture flow (vehicle → inspection → camera HUD → success)
+  is dark** — faithful to the old app. Light palette via `colorScheme` + `AppPalette`
+  extension; dark flow via centralized `InspectionColors`; attendance via `AttendanceColors`.
+- **Scope:** attendance/leaves + work-assigned now **included** (were dropped). Nav:
+  Home / Reports / Attendance (enabled) / Work-Assigned (disabled, mock) + Profile via top bar.
+
+### Exact-UI ✅
+- [x] CarSpy light home (top bar, hero `carspyHero.png`, segmented Daily/Monthly chart, footer stats)
+- [x] CarSpy 4-item bottom nav (selected pill); Profile via top-app-bar
+- [x] Dark vehicle form (gradient header, dark fields, Start Inspection, fade-in)
+- [x] Dark inspection screen: dark app bar, navBlue progress, white field-type-badge cards,
+  full camera HUD (FILE/PHOTO/VIDEO/AUDIO tabs, shutter ring, flash, gallery, REF, flag chips),
+  sections drawer, flag-issues sheet, dark nav bar; RC verify; field-info sheet
+- [x] Dark success (gradient check circle, details card, Go to Homepage / View Report)
+
+## P9 — Attendance / Leaves / Work-Assigned ✅
+- [x] models `attendance_models.dart` (AttendanceRecord, InspectorLeave, LeaveRequest)
+- [x] `attendance_repository.dart` (inspector leaves list/request/cancel; admin leaves list/approve/reject; admin attendance) + 6 endpoints in api_list
+- [x] `attendance_controllers.dart` (generic `Paged<T>`/`PagedNotifier`; inspector leaves, admin leaves, admin attendance — filters/loadMore/actions)
+- [x] screens: `AttendanceScreen` (role router), `InspectorLeavesScreen` (+coming-soon banner), `LeaveApplicationScreen`, `AdminAttendanceScreen` (2 tabs), `WorkAssignedScreen` (mock)
+- [x] ATTENDANCE nav tab enabled + shell branch; Work-Assigned tab disabled
+- [x] attendance repo tests; unit suite green; analyze clean
+- [ ] **follow-up:** rewrite the skipped `inspection_screen_test` for the new dark screen; widget tests for attendance screens
