@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../controllers/auth_controller.dart';
+import '../widgets/custom_button.dart';
+import '../widgets/custom_text_field.dart';
 
-// ponytail: minimal functional login for P4 router wiring. P5 builds the real UI.
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
@@ -14,6 +17,7 @@ class LoginScreen extends ConsumerStatefulWidget {
 class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _email = TextEditingController();
   final _password = TextEditingController();
+  bool _obscure = true;
 
   @override
   void dispose() {
@@ -22,42 +26,77 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     super.dispose();
   }
 
+  void _submit() {
+    FocusScope.of(context).unfocus();
+    // Navigation happens via GoRouter redirect when isAuthenticated flips.
+    ref.read(authControllerProvider.notifier).login(
+          email: _email.text.trim(),
+          password: _password.text,
+        );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
     final auth = ref.watch(authControllerProvider);
+
     return Scaffold(
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
+        child: SingleChildScrollView(
+          padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 32.w),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              TextField(
+              SizedBox(height: 40.w),
+              SvgPicture.asset('assets/images/certifide.svg', height: 64.w),
+              SizedBox(height: 40.w),
+              Text(
+                'Welcome Back',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.headlineSmall
+                    ?.copyWith(fontWeight: FontWeight.bold),
+              ),
+              SizedBox(height: 6.w),
+              Text(
+                'Sign in to continue',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium
+                    ?.copyWith(color: colors.onSurfaceVariant),
+              ),
+              SizedBox(height: 36.w),
+              CustomTextField(
                 controller: _email,
-                decoration: const InputDecoration(hintText: 'Email'),
+                hintText: 'Email',
+                prefixIcon: Icons.email_outlined,
+                keyboardType: TextInputType.emailAddress,
               ),
-              const SizedBox(height: 12),
-              TextField(
+              SizedBox(height: 14.w),
+              CustomTextField(
                 controller: _password,
-                obscureText: true,
-                decoration: const InputDecoration(hintText: 'Password'),
+                hintText: 'Password',
+                prefixIcon: Icons.lock_outline,
+                obscureText: _obscure,
+                suffixIcon: IconButton(
+                  icon: Icon(
+                      _obscure ? Icons.visibility_off : Icons.visibility,
+                      size: 20.sp),
+                  onPressed: () => setState(() => _obscure = !_obscure),
+                ),
               ),
-              const SizedBox(height: 16),
-              if (auth.errorMessage != null)
-                Text(auth.errorMessage!,
-                    style:
-                        TextStyle(color: Theme.of(context).colorScheme.error)),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: auth.isLoading
-                    ? null
-                    : () => ref.read(authControllerProvider.notifier).login(
-                          email: _email.text.trim(),
-                          password: _password.text,
-                        ),
-                child: auth.isLoading
-                    ? const CircularProgressIndicator()
-                    : const Text('Sign In'),
+              if (auth.errorMessage != null) ...[
+                SizedBox(height: 16.w),
+                Text(
+                  auth.errorMessage!,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: colors.error, fontSize: 13.sp),
+                ),
+              ],
+              SizedBox(height: 28.w),
+              CustomButton(
+                text: 'Sign In',
+                isLoading: auth.isLoading,
+                onPressed: _submit,
               ),
             ],
           ),

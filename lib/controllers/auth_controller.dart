@@ -11,6 +11,10 @@ part 'auth_controller.freezed.dart';
 @freezed
 abstract class AuthState with _$AuthState {
   const factory AuthState({
+    /// True once startup bootstrap has run (gates the splash screen).
+    @Default(false) bool bootstrapped,
+
+    /// True only during a login attempt (drives the Sign In button spinner).
     @Default(false) bool isLoading,
     @Default(false) bool isAuthenticated,
     User? user,
@@ -26,31 +30,30 @@ class AuthController extends Notifier<AuthState> {
   @override
   AuthState build() {
     _repo = ref.read(authRepositoryProvider);
-    return const AuthState(isLoading: true);
+    return const AuthState();
   }
 
   /// Called once at startup (from SplashScreen).
   Future<void> bootstrap() async {
     if (!await _repo.isLoggedIn()) {
-      state = const AuthState(isAuthenticated: false);
+      state = const AuthState(bootstrapped: true);
       return;
     }
     final cached = await _repo.readCachedUser();
     if (!ref.mounted) return;
     state = state.copyWith(
-        isAuthenticated: true, user: cached, isLoading: false);
+        bootstrapped: true, isAuthenticated: true, user: cached);
 
     // Validate/refresh session in the background.
     final res = await _repo.getProfile();
     if (!ref.mounted) return;
     switch (res) {
       case ApiSuccess(:final data):
-        state = state.copyWith(
-            user: data, isAuthenticated: true, isLoading: false);
+        state = state.copyWith(isAuthenticated: true, user: data);
       case ApiUnauthorized():
         await _clearSession();
       case _:
-        state = state.copyWith(isLoading: false); // keep cached user
+        break; // keep cached user
     }
   }
 
@@ -60,7 +63,8 @@ class AuthController extends Notifier<AuthState> {
     if (!ref.mounted) return false;
     switch (res) {
       case ApiSuccess(:final data):
-        state = AuthState(isAuthenticated: true, user: data);
+        state = AuthState(
+            bootstrapped: true, isAuthenticated: true, user: data);
         return true;
       case ApiUnauthorized(:final message):
       case ApiBadRequest(:final message):
@@ -96,7 +100,7 @@ class AuthController extends Notifier<AuthState> {
       await ref.read(localInspectionServiceProvider).clearDraft();
     } catch (_) {}
     if (!ref.mounted) return;
-    state = const AuthState(isAuthenticated: false);
+    state = const AuthState(bootstrapped: true, isAuthenticated: false);
   }
 }
 

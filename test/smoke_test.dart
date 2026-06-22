@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:inspektor/screens/home/home_screen.dart';
+import 'package:inspektor/themes/app_theme.dart';
 
 void main() {
-  testWidgets('HomeScreen renders', (tester) async {
-    await tester.pumpWidget(const MaterialApp(home: HomeScreen()));
-    expect(find.text('Inspektor'), findsOneWidget);
+  test('dark theme is Material 3 dark', () {
+    final theme = AppTheme.darkTheme;
+    expect(theme.useMaterial3, true);
+    expect(theme.brightness, Brightness.dark);
   });
 }

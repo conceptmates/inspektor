@@ -55,13 +55,15 @@ Legend: ⬜ todo · 🟦 in progress · ✅ done
 - [x] router: `_AuthRefreshNotifier` + `appRouterProvider` redirect (splash → login/home by auth); splash bootstraps; login placeholder (real UI P5)
 - [x] tests: auth_controller (login success/401), lists controller (pagination + AsyncError) — ProviderContainer.test · 29 green · commit
 
-## P5 — Auth + shell + home + profile  ⬜
-- [ ] `screens/authentication/login_screen.dart` (+ session bootstrap / splash)
-- [ ] shell: ShellRoute + bottom nav (Home / Reports / Profile)
-- [ ] `screens/home/home_screen.dart` (stats chart via fl_chart + "Start Inspection" hero + resume-draft dialog)
-- [ ] `screens/profile/profile_screen.dart` (view + logout)
-- [ ] shared widgets: `custom_button`, `custom_text_field`, `loading_widget` (lottie), `error_widget`
-- [ ] widget test: login · commit
+## P5 — Auth + shell + home + profile  ✅
+- [x] `screens/authentication/login_screen.dart` (logo + email/password + obscure toggle + error; nav via redirect) + `splash_screen.dart` (bootstraps auth)
+- [x] shell: `StatefulShellRoute.indexedStack` + bottom nav (Home / Reports / Profile), per-tab state preserved
+- [x] `screens/home/home_screen.dart` (fl_chart monthly bar + stat cards from daily totals + "Start Inspection" hero + resume-draft dialog; AsyncValue switch)
+- [x] `screens/profile/profile_screen.dart` (avatar/name/email/role + logout confirm → clears session)
+- [x] shared widgets: `custom_button`, `custom_text_field`, `loading_widget` (lottie), `error_widget`
+- [x] auth refactor: `bootstrapped` flag gates splash (isLoading only for login attempt)
+- [x] stubs for nav targets: Reports (P7), VehicleDetails/Inspection (P6)
+- [x] widget tests: login renders + shows error on failure · 31 green · commit
 
 ## P6 — Inspection flow (the heart)  ⬜
 - [ ] `screens/inspection/vehicle_details_form.dart` (brand→model cascade + fields → initialize)
