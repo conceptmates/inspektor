@@ -46,14 +46,14 @@ Legend: ⬜ todo · 🟦 in progress · ✅ done
 - [~] sync orchestration → P4 offline controller (composes repo + storage); media file-copy/export + `reports_cache_service` → P6/P7 (built where used)
 - [x] tests: auth_repo (login success/401), inspection_repo (stats/history/vehicles/5xx parse), local_inspection_service (status-fix regression) — all green · commit
 
-## P4 — Controllers (Riverpod 3)  ⬜
-- [ ] `controllers/auth_controller.dart` (freezed AuthState; login/logout/bootstrap; no BuildContext)
-- [ ] `controllers/inspection_session_controller.dart` (in-progress session snapshot)
-- [ ] `controllers/offline_inspection_controller.dart` (queue list + retry + auto-sync; Timer/StreamSub in `onDispose`)
-- [ ] `controllers/stats_controller.dart` (daily + monthly AsyncNotifier)
-- [ ] `controllers/history_controller.dart` + `controllers/reports_controller.dart` (paginated AsyncNotifier)
-- [ ] router: `routerRefreshNotifier` + `appRouter` provider with auth redirect
-- [ ] tests: controllers w/ mocked repos (ProviderContainer.test) · commit
+## P4 — Controllers (Riverpod 3)  ✅
+- [x] `controllers/auth_controller.dart` (freezed AuthState; bootstrap/login/logout; no BuildContext; keepAlive NotifierProvider)
+- [x] `controllers/inspection_session_controller.dart` (draft = single source of truth; start/resume/setValue/setMedia/setMulti/setFlag/setSection/setSubmissionData/addPendingMedia/complete; persists each change)
+- [~] offline queue + auto-sync controller → **P7** (built with the offline screen, where submission-body shape from P6 is known)
+- [x] `controllers/stats_controller.dart` (AsyncNotifier; daily + monthly; errors degrade to empty)
+- [x] `controllers/inspection_lists_controller.dart` (PaginatedInspections freezed + History/Reports AsyncNotifiers; loadMore/refresh)
+- [x] router: `_AuthRefreshNotifier` + `appRouterProvider` redirect (splash → login/home by auth); splash bootstraps; login placeholder (real UI P5)
+- [x] tests: auth_controller (login success/401), lists controller (pagination + AsyncError) — ProviderContainer.test · 29 green · commit
 
 ## P5 — Auth + shell + home + profile  ⬜
 - [ ] `screens/authentication/login_screen.dart` (+ session bootstrap / splash)
