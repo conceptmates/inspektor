@@ -8,7 +8,9 @@ import '../../controllers/inspection_session_controller.dart';
 import '../../controllers/inspection_submit_controller.dart';
 import '../../data/inspection_submission_builder.dart';
 import '../../models/inspection_template_model.dart';
+import '../../models/local_inspection.dart';
 import 'inspection_success_screen.dart';
+import 'widgets/media_field_control.dart';
 
 class InspectionScreen extends ConsumerStatefulWidget {
   const InspectionScreen({super.key});
@@ -168,6 +170,7 @@ class _InspectionScreenState extends ConsumerState<InspectionScreen> {
                 child: _FieldControl(
                   key: ValueKey(fieldKey(field)),
                   field: field,
+                  sectionName: section.name ?? section.title ?? '',
                   draft: draft,
                 ),
               ),
@@ -206,10 +209,16 @@ class _InspectionScreenState extends ConsumerState<InspectionScreen> {
 /// Renders the control for a single field. Text/date/dropdown + remarks.
 /// Media fields show a placeholder until P6c wires capture.
 class _FieldControl extends ConsumerWidget {
-  const _FieldControl({super.key, required this.field, required this.draft});
+  const _FieldControl({
+    super.key,
+    required this.field,
+    required this.sectionName,
+    required this.draft,
+  });
 
   final InspectionField field;
-  final dynamic draft; // LocalInspection
+  final String sectionName;
+  final LocalInspection draft;
 
   bool get _isMedia =>
       const {'image', 'video', 'audio', 'file'}.contains(field.fieldType) ||
@@ -234,10 +243,11 @@ class _FieldControl extends ConsumerWidget {
           Text('Required', style: TextStyle(color: theme.colorScheme.error, fontSize: 12.sp)),
         SizedBox(height: 16.w),
         if (_isMedia)
-          _MediaPlaceholder(field: field)
+          MediaFieldControl(
+              field: field, sectionName: sectionName, draft: draft)
         else if (field.options.isNotEmpty)
           DropdownButtonFormField<String>(
-            initialValue: draft.itemValues[key] as String?,
+            initialValue: draft.itemValues[key],
             decoration: const InputDecoration(labelText: 'Select'),
             items: field.options
                 .map((o) => DropdownMenuItem(
@@ -249,8 +259,7 @@ class _FieldControl extends ConsumerWidget {
           )
         else
           _TextInput(
-            initial: (draft.itemValues[key] ?? draft.textFieldValues[key])
-                as String?,
+            initial: draft.itemValues[key] ?? draft.textFieldValues[key],
             hint: field.fieldType == 'date' ? 'YYYY-MM-DD' : 'Enter value',
             onChanged: (v) => session.setValue(key, v),
           ),
@@ -259,37 +268,13 @@ class _FieldControl extends ConsumerWidget {
           Text('Remarks', style: theme.textTheme.bodyMedium),
           SizedBox(height: 8.w),
           _TextInput(
-            initial: draft.itemRemarks[key] as String?,
+            initial: draft.itemRemarks[key],
             hint: 'Add remarks (optional)',
             maxLines: 3,
             onChanged: (v) => session.setRemark(key, v),
           ),
         ],
       ],
-    );
-  }
-}
-
-class _MediaPlaceholder extends StatelessWidget {
-  const _MediaPlaceholder({required this.field});
-  final InspectionField field;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return Card(
-      child: Padding(
-        padding: EdgeInsets.all(20.w),
-        child: Row(
-          children: [
-            Icon(Icons.photo_camera_outlined, color: colors.onSurfaceVariant),
-            SizedBox(width: 12.w),
-            const Expanded(
-              child: Text('Media capture for this field arrives in P6c.'),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

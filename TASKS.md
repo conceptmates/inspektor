@@ -65,16 +65,11 @@ Legend: ⬜ todo · 🟦 in progress · ✅ done
 - [x] stubs for nav targets: Reports (P7), VehicleDetails/Inspection (P6)
 - [x] widget tests: login renders + shows error on failure · 31 green · commit
 
-## P6 — Inspection flow (the heart)  ⬜
-- [ ] `screens/inspection/vehicle_details_form.dart` (brand→model cascade + fields → initialize)
-- [ ] `screens/inspection/inspection_screen.dart` (dynamic render, per-field nav, sections drawer, progress)
-- [ ] field types: text/date, dropdown, image, video, audio, file, multi-image (≤11), remarks, flag-issues, RC verify (`regno`)
-- [ ] capture widgets: `section_camera_card`, `section_video_camera_card`, audio (record), file picker; review/rotate overlays
-- [ ] `widgets/inspection_field_info_sheet.dart` + `constants/inspection_field_explanations`
-- [ ] reference media view + info button
-- [ ] autosave (500ms debounce) + resume (snapshot → Hive → refetch template) + lifecycle flush
-- [ ] submit: online (`/dynamic-inspections`) + offline fallback (queue) + `inspection_success_screen.dart`
-- [ ] widget test: dynamic render of a sample template · commit
+## P6 — Inspection flow (the heart)  🟦 (P6a+P6b done; P6c/P6d pending)
+- [x] **P6a** `vehicle_details_screen.dart` (brand→model cascade + year/variant/colour/transmission → initialize → seed session) + catalog/setup controllers · widget test
+- [x] **P6b** `inspection_screen.dart` (dynamic one-field-at-a-time render: text/date/dropdown + remarks, prev/next/section nav, progress, autosave via session) + `buildSubmissionBody` (pure, tested) + `InspectionSubmitController` (online submit / offline queue) + `inspection_success_screen.dart` + success route
+- [ ] **P6c** media capture: image, video, audio, file, multi-image (≤11) → upload + offline queue; flag-issues sheet — *awaiting capture-UI decision*
+- [ ] **P6d** RC verify (`regno`), reference media + field-info sheet, exact resume position, lifecycle autosave flush; inspection screen widget test (Hive harness)
 
 ## P7 — Reports / History / Offline  ⬜
 - [ ] `screens/reports/reports_screen.dart` (my-history, pagination, pull-refresh)
