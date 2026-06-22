@@ -19,14 +19,14 @@ Legend: ⬜ todo · 🟦 in progress · ✅ done
 - [x] moved `assets/images` + `assets/lottie` + declared in pubspec
 - [x] smoke `flutter test` green · `flutter analyze` clean · commit
 
-## P1 — API core  ⬜
-- [ ] `services/api/api_result.dart` — sealed `ApiResult<T>` (Success + error variants)
-- [ ] `services/api/api_wrapper.dart` — get/post/put/patch/delete/upload, `useAuth`, status→ApiResult mapping
-- [ ] `services/dio_client.dart` — `dioClientProvider`, base URL, auth interceptor (attach token), 401 → refresh → retry once (QueuedInterceptorsWrapper)
-- [ ] `services/api_list.dart` — KEEP endpoints only (see plan table)
-- [ ] `services/user_service.dart` — secure storage + prefs, centralized keys (`jwt_token`/`user_data`/`last_profile_update`)
-- [ ] `data/exceptions.dart`
-- [ ] tests: ApiResult mapping, UserService · commit
+## P1 — API core  ✅
+- [x] `services/api/api_result.dart` — sealed `ApiResult<T>` (Success + 7 error variants)
+- [x] `services/api/api_wrapper.dart` — get/post/put/patch/delete/upload, `useAuth`, status→ApiResult mapping (`mapError` exposed for tests)
+- [x] `services/dio_client.dart` — `dioClientProvider` + `apiWrapperProvider`, base URL, `AuthInterceptor` (attach token via `useAuth` extra), 401 → refresh → retry once (QueuedInterceptorsWrapper, `skipRefresh` guard)
+- [x] `services/api_list.dart` — 12 KEEP endpoints only
+- [x] `services/user_service.dart` — `FlutterSecureStorage`, centralized keys (`jwt_token`/`user_data`/`last_profile_update`) + `userServiceProvider`
+- [~] `data/exceptions.dart` — skipped (YAGNI; ApiResult covers HTTP outcomes — add a domain exception when a real throw site needs it)
+- [x] tests: 8 ApiWrapper mapping cases (200/400/401/403/404/422/500/network) green · UserService is thin pass-through, no test (trivial) · commit
 
 ## P2 — Models (freezed)  ⬜
 - [ ] `user_model.dart` (replaces untyped `userData` map; roles)
