@@ -5,6 +5,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:hive_ce_flutter/hive_ce_flutter.dart';
 
 import 'app/router/app_router.dart';
+import 'services/local_inspection_service.dart';
 import 'themes/app_theme.dart';
 import 'utils/constants.dart';
 
@@ -12,7 +13,7 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await ScreenUtil.ensureScreenSize();
   await Hive.initFlutter();
-  // Offline boxes/adapters opened in P3 (local_inspection_service).
+  await Hive.openBox<String>(LocalInspectionService.boxName);
 
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,

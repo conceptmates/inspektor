@@ -38,14 +38,13 @@ Legend: ⬜ todo · 🟦 in progress · ✅ done
 - [x] unified `local_inspection.dart` — one `LocalInspection` (draft+queue+submitted via `LocalStatus`) + `PendingMedia`, stored as JSON in `Box<String>` (no Hive adapter codegen). `build.yaml` sets `explicit_to_json: true` for clean round-trip.
 - [x] tests: 6 model parse/round-trip cases green · commit
 
-## P3 — Repositories + storage/sync  ⬜
-- [ ] `data/repositories/auth_repository.dart` (login, me, refresh, logout-local)
-- [ ] `data/repositories/inspection_repository.dart` (vehicle models, initialize, ulip RC, upload media, submit, update, history, my-history, stats)
-- [ ] `services/local_inspection_service.dart` — unified Hive queue (save draft/autosave, resume, save offline, queue readers w/ **one** status, media file copy + user-export folder, mutators, mark-submitted)
-- [ ] `services/sync_service.dart` or fold into controller — connectivity-triggered auto-sync
-- [ ] `services/reports_cache_service.dart`
-- [ ] media/connectivity helpers (`connectivity`, image compress, base64 if needed)
-- [ ] tests: repos w/ mocked ApiWrapper; offline status-fix regression test · commit
+## P3 — Repositories + storage/sync  ✅
+- [x] `data/repositories/auth_repository.dart` (login, getProfile/me, readCachedUser, logout-local). `castApiError<T>` helper added to api_result.
+- [x] `data/repositories/inspection_repository.dart` (vehicle models+derived brands, initialize, ulip RC, uploadMedia multipart, submit, update, getHistory, getMyHistory, getStats). Typed records: VehicleCatalog/InspectionInit/SubmitResult/HistoryPage.
+- [x] `services/local_inspection_service.dart` — unified `Box<String>` JSON store: draft (saveDraft/getDraft/hasFreshDraft) + queue (upsertPending/getPending/getPendingWithMedia/markSubmitted) with **one** status. Boxes opened in `main`.
+- [x] `services/connectivity_service.dart` (connectivity_plus + internet probe + onChanged stream)
+- [~] sync orchestration → P4 offline controller (composes repo + storage); media file-copy/export + `reports_cache_service` → P6/P7 (built where used)
+- [x] tests: auth_repo (login success/401), inspection_repo (stats/history/vehicles/5xx parse), local_inspection_service (status-fix regression) — all green · commit
 
 ## P4 — Controllers (Riverpod 3)  ⬜
 - [ ] `controllers/auth_controller.dart` (freezed AuthState; login/logout/bootstrap; no BuildContext)

@@ -48,3 +48,18 @@ final class ApiNetworkError<T> extends ApiResult<T> {
   final String? message;
   const ApiNetworkError({this.message});
 }
+
+/// Re-type a non-success result to a new payload type T (for repositories that
+/// transform the success payload but pass errors through unchanged).
+ApiResult<T> castApiError<T>(ApiResult<Object?> r) => switch (r) {
+      ApiSuccess() => throw StateError('castApiError called on ApiSuccess'),
+      ApiBadRequest(:final message) => ApiBadRequest<T>(message: message),
+      ApiUnauthorized(:final message) => ApiUnauthorized<T>(message: message),
+      ApiForbidden(:final message) => ApiForbidden<T>(message: message),
+      ApiNotFound(:final message) => ApiNotFound<T>(message: message),
+      ApiClientError(:final statusCode, :final message) =>
+        ApiClientError<T>(statusCode: statusCode, message: message),
+      ApiServerError(:final statusCode, :final message) =>
+        ApiServerError<T>(statusCode: statusCode, message: message),
+      ApiNetworkError(:final message) => ApiNetworkError<T>(message: message),
+    };
