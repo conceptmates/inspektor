@@ -22,4 +22,12 @@ class APIList {
   static const String inspectionHistory = '/dynamic-inspections';
   static const String myHistory = '/dynamic-inspections/my-history';
   static const String inspectionStats = '/dynamic-inspections/stats';
+
+  // --- Attendance / leaves ---
+  static const String inspectorLeaves = '/inspector/leaves';
+  static String cancelLeave(Object id) => '/inspector/leaves/$id';
+  static const String adminLeaves = '/admin/leaves';
+  static String approveLeave(Object id) => '/admin/leaves/$id/approve';
+  static String rejectLeave(Object id) => '/admin/leaves/$id/reject';
+  static const String adminAttendance = '/admin/attendance';
 }

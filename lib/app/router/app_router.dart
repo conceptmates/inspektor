@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../controllers/auth_controller.dart';
+import '../../screens/attendance/attendance_screen.dart';
 import '../../screens/authentication/login_screen.dart';
 import '../../screens/home/home_screen.dart';
 import '../../screens/history/history_screen.dart';
@@ -21,6 +22,7 @@ class RouteNames {
   static const login = 'login';
   static const home = 'home';
   static const reports = 'reports';
+  static const attendance = 'attendance';
   static const profile = 'profile';
   static const vehicleDetails = 'vehicleDetails';
   static const inspection = 'inspection';
@@ -35,6 +37,7 @@ class RoutePaths {
   static const login = '/login';
   static const home = '/';
   static const reports = '/reports';
+  static const attendance = '/attendance';
   static const profile = '/profile';
   static const vehicleDetails = '/vehicle-details';
   static const inspection = '/inspection';
@@ -99,6 +102,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               path: RoutePaths.reports,
               name: RouteNames.reports,
               builder: (_, _) => const ReportsScreen(),
+            ),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(
+              path: RoutePaths.attendance,
+              name: RouteNames.attendance,
+              builder: (_, _) => const AttendanceScreen(),
             ),
           ]),
         ],

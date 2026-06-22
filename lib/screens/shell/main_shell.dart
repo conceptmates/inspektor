@@ -39,7 +39,7 @@ class _NavItem {
 const _items = [
   _NavItem(Icons.home_rounded, 'HOME'),
   _NavItem(Icons.description_outlined, 'REPORTS'),
-  _NavItem(Icons.calendar_today_outlined, 'ATTENDANCE', enabled: false),
+  _NavItem(Icons.calendar_today_outlined, 'ATTENDANCE'),
   _NavItem(Icons.assignment_outlined, 'WORK ASSIGNED', enabled: false),
 ];
 
