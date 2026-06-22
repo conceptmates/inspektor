@@ -28,15 +28,15 @@ Legend: ⬜ todo · 🟦 in progress · ✅ done
 - [~] `data/exceptions.dart` — skipped (YAGNI; ApiResult covers HTTP outcomes — add a domain exception when a real throw site needs it)
 - [x] tests: 8 ApiWrapper mapping cases (200/400/401/403/404/422/500/network) green · UserService is thin pass-through, no test (trivial) · commit
 
-## P2 — Models (freezed)  ⬜
-- [ ] `user_model.dart` (replaces untyped `userData` map; roles)
-- [ ] template family: `InspectionInitializationResponse`, `InspectionTemplate`, `VehicleInfo`, `InspectionStructure`, `InspectionSection`, `InspectionField`, `DropdownOption`, `ReferenceMedia`
-- [ ] `vehicle_model.dart` (`VehicleBrand`, `VehicleCategory`, `VehicleModel`)
-- [ ] `inspection_history_model.dart` (dual-shape parser)
-- [ ] `inspection_stats_model.dart` (totals + buckets)
-- [ ] `pagination_data_model.dart`
-- [ ] unified offline model + Hive adapter (single typeId) + `PendingMedia`
-- [ ] tests: fromJson round-trips · commit
+## P2 — Models (freezed)  ✅
+- [x] `user_model.dart` (typed; roles parsed from `[{name}]`; isAdmin/hasRole)
+- [x] template family: `InspectionInitializationResponse`, `InspectionTemplate`, `VehicleInfo`, `InspectionStructure`, `InspectionSection`, `InspectionField`, `DropdownOption`, `ReferenceMedia` (snake_case + dual-key readers color/colour, type/media_type, template_type/templateType)
+- [x] `vehicle_model.dart` (`VehicleBrand`, `VehicleCategory`, `VehicleModel`)
+- [x] `inspection_history_model.dart` (`fromApi` dual-shape synthesizer, no toJson)
+- [x] `inspection_stats_model.dart` (`fromApi` reads meta + totals + buckets; activeBuckets)
+- [x] `pagination_data_model.dart` (+ hasMore)
+- [x] unified `local_inspection.dart` — one `LocalInspection` (draft+queue+submitted via `LocalStatus`) + `PendingMedia`, stored as JSON in `Box<String>` (no Hive adapter codegen). `build.yaml` sets `explicit_to_json: true` for clean round-trip.
+- [x] tests: 6 model parse/round-trip cases green · commit
 
 ## P3 — Repositories + storage/sync  ⬜
 - [ ] `data/repositories/auth_repository.dart` (login, me, refresh, logout-local)
