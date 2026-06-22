@@ -11,14 +11,17 @@ unwanted/dead APIs; keep only endpoints actually used by the inspector app.
 |---|---|
 | **New app** (this — build here) | `/Users/mac/Documents/Conceptmate_workspace/certifide/inspektor` |
 | **Old app** (source of truth for UI/flow/logic) | `/Users/mac/Documents/Conceptmate_workspace/certifide/Certifide_inspektor` |
-| **Backend / CRM** (API docs source of truth) | `/Users/mac/Documents/Conceptmate_workspace/certifide/certifide-crm` |
+| **Backend API** (API source of truth) | `/Users/mac/Documents/Conceptmate_workspace/certifide/certifide_open` |
 | **Architecture spec** (MUST follow) | `./architecture.md` |
 | **Migration plan** | `./MIGRATION_PLAN.md` |
 | **Task tracking** | `./TASKS.md` |
 
-> `certifide-crm` is a Vite/TS frontend, **not** the API server. The API surface
-> is documented in its `API_ENDPOINTS_SUMMARY.md`, `API_DOCUMENTATION.md`,
-> `ADMIN_API_DOCUMENTATION.md`. Treat those as the API source of truth.
+> `certifide_open` is the **Laravel API server** itself — the real source of
+> truth. Endpoints: `routes/api.php` + `app/Http/Controllers/` (e.g.
+> `DynamicInspectionController`, `AuthController`, `InspectionFieldOptionController`).
+> Docs: `API_DOCUMENTATION.md`, `API_ENDPOINTS_SUMMARY.md`,
+> `SWAGGER_DOCUMENTATION.md`, and `docs/` (`inspector-workflow-api.md`,
+> `dynamic-inspection-api.md`). Code wins over docs if they disagree.
 
 ## Old → new stack
 
@@ -39,7 +42,8 @@ compress, file picker, fl_chart, lottie) — real inspection features, not bloat
 - **Follow `architecture.md` exactly** — folder layout, layer boundaries,
   Riverpod 3 patterns, GoRouter single-file, ApiWrapper/ApiResult, theme.
 - **Only used APIs.** Don't port endpoints the old app never calls. Verify a
-  call exists in old code before porting; cross-check shape against CRM docs.
+  call exists in old code before porting; cross-check shape against the
+  `certifide_open` backend (routes/controllers, then docs).
 - **Preserve UI + flow + logic** from the old app — restructure code, don't
   redesign behavior.
 - **No hardcoded UI data / paths / colors.** Endpoints → `services/api_list.dart`;

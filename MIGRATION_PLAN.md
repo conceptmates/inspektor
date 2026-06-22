@@ -27,13 +27,15 @@ token-balance drawer badge.
 ## Source of truth
 
 - **Behavior/UI/flow** → old app `Certifide_inspektor/lib/**`.
-- **API** → the old app's **actual calls** to `https://api.certifide.in/api`.
-  The CRM `certifide-crm/API_*.md` docs are **stale/partial** (missing
-  `/dynamic-inspections/initialize`, `/inspection/upload-image`,
-  `/dynamic-inspections/my-history`, `/dynamic-inspections/stats`,
-  `/ulip/vehicle-details`, `/admin/vehicles/models`). Do **not** drop a used
-  endpoint because the CRM markdown omits it. (If a real call later 404s,
-  revisit against the live backend.)
+- **API** → the old app's **actual calls** to `https://api.certifide.in/api`,
+  cross-checked against the `certifide_open` backend (`routes/api.php` +
+  controllers; docs in `API_DOCUMENTATION.md`, `API_ENDPOINTS_SUMMARY.md`,
+  `docs/`). The markdown docs can be partial — if a doc omits an endpoint the
+  old app actually calls (e.g. `/dynamic-inspections/initialize`,
+  `/inspection/upload-image`, `/dynamic-inspections/my-history`,
+  `/dynamic-inspections/stats`, `/ulip/vehicle-details`,
+  `/admin/vehicles/models`), confirm it in `routes/api.php`; do **not** drop a
+  used endpoint just because the markdown omits it.
 
 ## API surface — KEEP (only what in-scope flows call)
 

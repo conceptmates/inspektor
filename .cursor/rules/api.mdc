@@ -1,0 +1,13 @@
+---
+description: API / networking layer
+globs: lib/services/**,lib/data/repositories/**
+---
+
+# API rules
+
+- All HTTP goes through `ApiWrapper` (`services/api/api_wrapper.dart`) → returns sealed `ApiResult<T>`. App code never calls Dio directly.
+- Handle results with an **exhaustive switch** on `ApiResult` (Success / BadRequest / Unauthorized / Forbidden / NotFound / ClientError / ServerError / NetworkError). No try/catch for normal HTTP outcomes.
+- Endpoints live in `services/api_list.dart` (paths only). Base URL is `apiBaseUrl` in `dio_client.dart` — one place.
+- Auth: `useAuth` flag on each call. `AuthInterceptor` attaches the bearer and on 401 refreshes once then retries.
+- Repositories transform success payloads and pass errors through with `castApiError<T>`. Controllers depend on repositories, not on ApiWrapper/Dio.
+- Logging only in `ApiLoggingInterceptor` — never `print`/`debugPrint`.

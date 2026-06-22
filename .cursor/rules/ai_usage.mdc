@@ -1,0 +1,14 @@
+---
+description: Always-on rules for working in this repo
+alwaysApply: true
+---
+
+# AI usage (always-on)
+
+- **Follow `architecture.md`** — layered (UI → controller → repository → service → ApiWrapper), Riverpod 3, freezed, GoRouter, dark-only theme.
+- **Build phase by phase.** See `MIGRATION_PLAN.md` / `TASKS.md`. End each phase: `flutter analyze` clean → `flutter test` green → commit `feat(p{N}): ...`.
+- **Ask 1–2 focused questions** when requirements are unclear before implementing.
+- **Resolve syntax/version doubts** via official docs / Context7 — don't guess (Riverpod, Dio, freezed, GoRouter).
+- **Codegen:** `dart run build_runner build` after editing freezed models / json. No `riverpod_generator` (use manual `NotifierProvider`); no Hive adapters (offline stored as JSON in `Box<String>`).
+- **API source of truth** = the old app's real calls to `https://api.certifide.in/api` (CRM `API_*.md` docs are stale). Only port endpoints the app actually uses.
+- **Never** put `BuildContext` in a Notifier, hardcode URLs/keys/colors, or `print` in the HTTP path.

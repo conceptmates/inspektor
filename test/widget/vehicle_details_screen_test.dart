@@ -28,7 +28,7 @@ void main() {
       child: ScreenUtilInit(
         designSize: const Size(375, 812),
         builder: (_, _) => MaterialApp(
-          theme: AppTheme.darkTheme,
+          theme: AppTheme.light,
           home: const VehicleDetailsScreen(),
         ),
       ),

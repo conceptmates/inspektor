@@ -25,7 +25,7 @@ class _FakeUserService extends UserService {
 
 Widget _wrap(Widget child) => ScreenUtilInit(
       designSize: const Size(375, 812),
-      builder: (_, _) => MaterialApp(theme: AppTheme.darkTheme, home: child),
+      builder: (_, _) => MaterialApp(theme: AppTheme.light, home: child),
     );
 
 void main() {

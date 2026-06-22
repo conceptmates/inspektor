@@ -1,0 +1,14 @@
+---
+description: State management (Riverpod 3)
+globs: lib/controllers/**
+---
+
+# State rules (Riverpod 3)
+
+- Manual providers (no codegen): `NotifierProvider`/`AsyncNotifierProvider` (+ `.autoDispose` for screen-scoped). keepAlive providers for auth/session.
+- `ref.watch` for UI, `ref.read(...notifier)` for actions, `ref.listen` for side effects. Pattern-match `AsyncValue` (no `.when`).
+- State is **immutable** — freezed states or records; always assign a new instance (never mutate lists/maps in place).
+- `AsyncValue.value` (not `valueOrNull` — removed in v3). After `await`, check `if (!ref.mounted) return;`.
+- No `BuildContext` / `TextEditingController` in Notifiers — keep those in widgets.
+- Notifier resources (Timer/StreamSubscription) cancelled in `ref.onDispose`.
+- Test with `ProviderContainer.test` + repository overrides; disable auto-retry (`retry: (_, _) => null`) when asserting AsyncError.

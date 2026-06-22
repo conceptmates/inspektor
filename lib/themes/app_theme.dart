@@ -1,18 +1,26 @@
 import 'package:flutter/material.dart';
 
-import '../utils/colors.dart';
+import 'app_palette.dart';
+import 'carspy_colors.dart';
 
-/// Dark-only theme (faithful to old AppThemes.darkTheme). Material 3.
-/// Widgets must use Theme.of(context).colorScheme — no hardcoded colors.
+/// Light theme for the user-facing CarSpy screens. The inspection capture flow
+/// hardcodes its own dark palette (faithful to the legacy app — the documented
+/// dark-overlay exception in architecture.md).
 class AppTheme {
   const AppTheme._();
 
-  static ThemeData get darkTheme {
-    final scheme = ColorScheme.dark(
-      primary: AppColors.primary,
-      secondary: AppColors.primary,
-      surface: AppColors.surfaceDark,
-      error: AppColors.errorDark,
+  static ThemeData get light {
+    final scheme = ColorScheme.fromSeed(
+      seedColor: CarSpyColors.primary,
+      primary: CarSpyColors.primary,
+      surface: Colors.white,
+    ).copyWith(
+      onSurface: CarSpyColors.onSurface,
+      onSurfaceVariant: CarSpyColors.onSurfaceVariant,
+      outlineVariant: CarSpyColors.outlineVariant,
+      error: CarSpyColors.rejected,
+      surfaceContainerLow: CarSpyColors.surface, // card bg 0xFFF4F7FA
+      surfaceContainerHighest: const Color(0xFFF1F5F9), // segmented-control bg
     );
 
     OutlineInputBorder border(Color color, [double width = 1]) =>
@@ -23,34 +31,40 @@ class AppTheme {
 
     return ThemeData(
       useMaterial3: true,
-      brightness: Brightness.dark,
+      brightness: Brightness.light,
       colorScheme: scheme,
-      scaffoldBackgroundColor: AppColors.scaffoldDark,
+      extensions: const [AppPalette.light],
+      scaffoldBackgroundColor: Colors.white,
+      appBarTheme: const AppBarTheme(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
+        foregroundColor: CarSpyColors.onSurface,
+        elevation: 0,
+      ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: AppColors.inputFillDark,
-        hintStyle: TextStyle(color: AppColors.hintDark),
+        fillColor: const Color(0xFFF9FAFB),
         contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        border: border(AppColors.borderDark),
-        enabledBorder: border(AppColors.borderDark),
-        focusedBorder: border(AppColors.primary, 2),
-        errorBorder: border(AppColors.errorDark),
-        focusedErrorBorder: border(AppColors.errorDark, 2),
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        border: border(CarSpyColors.outlineVariant),
+        enabledBorder: border(CarSpyColors.outlineVariant),
+        focusedBorder: border(CarSpyColors.primary, 2),
+        errorBorder: border(CarSpyColors.rejected),
+        focusedErrorBorder: border(CarSpyColors.rejected, 2),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.primary,
+          backgroundColor: CarSpyColors.primary,
           foregroundColor: Colors.white,
-          elevation: 2,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          elevation: 0,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
         ),
       ),
       textButtonTheme: TextButtonThemeData(
-        style: TextButton.styleFrom(foregroundColor: AppColors.primary),
+        style: TextButton.styleFrom(foregroundColor: CarSpyColors.primary),
       ),
     );
   }

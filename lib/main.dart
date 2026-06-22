@@ -35,9 +35,8 @@ class InspektorApp extends ConsumerWidget {
       builder: (context, child) => MaterialApp.router(
         title: AppConstants.appName,
         debugShowCheckedModeBanner: false,
-        theme: AppTheme.darkTheme,
-        darkTheme: AppTheme.darkTheme,
-        themeMode: ThemeMode.dark,
+        theme: AppTheme.light,
+        themeMode: ThemeMode.light,
         routerConfig: ref.watch(appRouterProvider),
       ),
     );

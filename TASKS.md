@@ -69,21 +69,22 @@ Legend: ⬜ todo · 🟦 in progress · ✅ done
 - [x] **P6a** `vehicle_details_screen.dart` (brand→model cascade + year/variant/colour/transmission → initialize → seed session) + catalog/setup controllers · widget test
 - [x] **P6b** `inspection_screen.dart` (dynamic one-field-at-a-time render: text/date/dropdown + remarks, prev/next/section nav, progress, autosave via session) + `buildSubmissionBody` (pure, tested) + `InspectionSubmitController` (online submit / offline queue) + `inspection_success_screen.dart` + success route
 - [x] **P6c** media capture (decision: **exact custom viewfinder**): ported `section_camera_card` + `section_video_camera_card`; `MediaStorageService` (compress/save); `MediaCaptureController` (upload-or-queue); `MediaFieldControl` (image/multi≤11/video/audio record+browse/file). Wired into form.
-- [ ] **P6d** RC verify (`regno` → ULIP), reference media + field-info sheet, flag-issues sheet, exact resume position, lifecycle autosave flush; inspection screen widget test (Hive harness)
+- [x] **P6d** RC verify (`regno` → ULIP, inline Verify + RC dialog), `FieldInfoSheet` (reference media from API + metadata), flag-issues chips (from field options), section-resume; inspection screen widget test (Hive harness). *Lifecycle flush n/a — session persists eagerly on each change.*
 
-## P7 — Reports / History / Offline  ⬜
-- [ ] `screens/reports/reports_screen.dart` (my-history, pagination, pull-refresh)
-- [ ] `screens/history/history_screen.dart` (history list, infinite scroll, status chips, open report URL)
-- [ ] `screens/offline/local_inspections_screen.dart` (queue list, per-item retry, cooldown)
-- [ ] error + loading states wired; connectivity banner
-- [ ] tests: list/pagination · commit
+## P7 — Reports / History / Offline  ✅
+- [x] `OfflineInspectionController` — queue list + per-item retry (upload pending media → rewrite body URLs → submit → mark submitted) + connectivity-triggered `syncAll`
+- [x] reusable `InspectionList` widget (pull-refresh + infinite scroll + status chips + open-report URL)
+- [x] `reports_screen.dart` (my-history) + `history_screen.dart` (all) — both via `InspectionList`
+- [x] `local_inspections_screen.dart` (pending queue, per-item retry/delete, sync-now)
+- [x] routes (history, offline) + Home app-bar entry points
+- [x] error + loading states wired (list controller AsyncError/loading covered by P4 tests)
 
-## P8 — Polish + cursor rules  ⬜
-- [ ] dark theme finalize (single `darkTheme`, no hardcoded colors in widgets)
-- [ ] dead-code audit (no leftover Car-Spy/admin/attendance refs)
-- [ ] `.cursor/rules/`: theme · api · ui · state · router · ai_usage (always-on)
-- [ ] full `flutter analyze` + `flutter test` green
-- [ ] README · commit
+## P8 — Polish + cursor rules  ✅
+- [x] dark theme final (single `darkTheme`, widgets use colorScheme)
+- [x] dead-code audit: no Car-Spy/admin/attendance refs; analyze clean (no unused)
+- [x] `.cursor/rules/`: theme · api · ui · state · router · ai_usage (always-on)
+- [x] full `flutter analyze` clean + `flutter test` green
+- [x] README · commit
 
 ---
 

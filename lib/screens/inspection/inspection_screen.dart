@@ -7,9 +7,12 @@ import '../../app/router/app_router.dart';
 import '../../controllers/inspection_session_controller.dart';
 import '../../controllers/inspection_submit_controller.dart';
 import '../../data/inspection_submission_builder.dart';
+import '../../data/repositories/inspection_repository.dart';
 import '../../models/inspection_template_model.dart';
 import '../../models/local_inspection.dart';
+import '../../services/api/api_result.dart';
 import 'inspection_success_screen.dart';
+import 'widgets/field_info_sheet.dart';
 import 'widgets/media_field_control.dart';
 
 class InspectionScreen extends ConsumerStatefulWidget {
@@ -233,12 +236,25 @@ class _FieldControl extends ConsumerWidget {
     final key = fieldKey(field);
     final session = ref.read(inspectionSessionControllerProvider.notifier);
 
+    final hasInfo = field.referenceMedia.isNotEmpty || field.metadata != null;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(field.title ?? key,
-            style:
-                theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+        Row(
+          children: [
+            Expanded(
+              child: Text(field.title ?? key,
+                  style: theme.textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w600)),
+            ),
+            if (hasInfo)
+              IconButton(
+                icon: const Icon(Icons.info_outline),
+                onPressed: () => FieldInfoSheet.show(context, field),
+              ),
+          ],
+        ),
         if (field.isRequired)
           Text('Required', style: TextStyle(color: theme.colorScheme.error, fontSize: 12.sp)),
         SizedBox(height: 16.w),
@@ -257,12 +273,21 @@ class _FieldControl extends ConsumerWidget {
                 .toList(),
             onChanged: (v) => v == null ? null : session.setValue(key, v),
           )
+        else if (field.fieldId == 'regno')
+          _RegnoInput(
+            initial: draft.itemValues[key] ?? draft.textFieldValues[key],
+            onChanged: (v) => session.setValue(key, v),
+          )
         else
           _TextInput(
             initial: draft.itemValues[key] ?? draft.textFieldValues[key],
             hint: field.fieldType == 'date' ? 'YYYY-MM-DD' : 'Enter value',
             onChanged: (v) => session.setValue(key, v),
           ),
+        if (_isMedia && field.options.isNotEmpty) ...[
+          SizedBox(height: 16.w),
+          _FlagChips(field: field, fieldKeyStr: key),
+        ],
         if (field.hasRemarks) ...[
           SizedBox(height: 16.w),
           Text('Remarks', style: theme.textTheme.bodyMedium),
@@ -274,6 +299,123 @@ class _FieldControl extends ConsumerWidget {
             onChanged: (v) => session.setRemark(key, v),
           ),
         ],
+      ],
+    );
+  }
+}
+
+/// Registration-number field with an ULIP "Verify" action.
+class _RegnoInput extends ConsumerStatefulWidget {
+  const _RegnoInput({required this.initial, required this.onChanged});
+  final String? initial;
+  final ValueChanged<String> onChanged;
+
+  @override
+  ConsumerState<_RegnoInput> createState() => _RegnoInputState();
+}
+
+class _RegnoInputState extends ConsumerState<_RegnoInput> {
+  late final TextEditingController _c =
+      TextEditingController(text: widget.initial);
+  bool _verifying = false;
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  Future<void> _verify() async {
+    final value = _c.text.trim();
+    if (value.isEmpty) return;
+    setState(() => _verifying = true);
+    final res =
+        await ref.read(inspectionRepositoryProvider).verifyRegistration(value);
+    if (!mounted) return;
+    setState(() => _verifying = false);
+    final body = switch (res) {
+      ApiSuccess(:final data) => data.entries
+          .take(25)
+          .map((e) => '${e.key}: ${e.value}')
+          .join('\n'),
+      ApiNetworkError() => 'No connection. Check your network.',
+      _ => 'Could not verify this registration number.',
+    };
+    if (!mounted) return;
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('RC Details'),
+        content: SingleChildScrollView(child: Text(body)),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        TextField(
+          controller: _c,
+          textCapitalization: TextCapitalization.characters,
+          onChanged: widget.onChanged,
+          decoration: const InputDecoration(hintText: 'Registration number'),
+        ),
+        SizedBox(height: 8.w),
+        TextButton.icon(
+          onPressed: _verifying ? null : _verify,
+          icon: _verifying
+              ? const SizedBox(
+                  height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
+              : const Icon(Icons.verified_outlined),
+          label: const Text('Verify'),
+        ),
+      ],
+    );
+  }
+}
+
+/// Condition-flag selector for media fields (from the field's options).
+class _FlagChips extends ConsumerWidget {
+  const _FlagChips({required this.field, required this.fieldKeyStr});
+  final InspectionField field;
+  final String fieldKeyStr;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final current = ref.watch(inspectionSessionControllerProvider
+        .select((d) => d?.itemFlaggedIssues[fieldKeyStr] ?? const <String>[]));
+    final session = ref.read(inspectionSessionControllerProvider.notifier);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Flag issues', style: Theme.of(context).textTheme.bodyMedium),
+        SizedBox(height: 8.w),
+        Wrap(
+          spacing: 8.w,
+          children: [
+            for (final o in field.options)
+              FilterChip(
+                label: Text(o.label ?? o.value ?? ''),
+                selected: current.contains(o.value),
+                onSelected: (sel) {
+                  final val = o.value ?? '';
+                  final next = [...current];
+                  if (sel) {
+                    if (!next.contains(val)) next.add(val);
+                  } else {
+                    next.remove(val);
+                  }
+                  session.setFlagged(fieldKeyStr, next);
+                },
+              ),
+          ],
+        ),
       ],
     );
   }

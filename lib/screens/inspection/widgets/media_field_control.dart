@@ -171,9 +171,9 @@ class MediaFieldControl extends ConsumerWidget {
                 icon: const Icon(Icons.folder_open),
                 label: const Text('Browse'),
                 onPressed: () async {
-                  final res = await FilePicker.platform
-                      .pickFiles(type: FileType.audio);
-                  final p = res?.files.single.path;
+                  final res =
+                      await FilePicker.pickFile(type: FileType.audio);
+                  final p = res?.path;
                   if (p != null) {
                     await c.captureAudio(
                         key: key, section: sectionName, rawPath: p);
@@ -199,8 +199,8 @@ class MediaFieldControl extends ConsumerWidget {
           icon: const Icon(Icons.attach_file),
           label: Text(captured ? 'Replace file' : 'Choose file'),
           onPressed: () async {
-            final res = await FilePicker.platform.pickFiles();
-            final p = res?.files.single.path;
+            final res = await FilePicker.pickFile();
+            final p = res?.path;
             if (p != null) {
               await c.captureFile(
                   key: key, section: sectionName, rawPath: p);

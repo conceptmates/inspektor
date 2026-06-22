@@ -5,9 +5,11 @@ import 'package:go_router/go_router.dart';
 import '../../controllers/auth_controller.dart';
 import '../../screens/authentication/login_screen.dart';
 import '../../screens/home/home_screen.dart';
+import '../../screens/history/history_screen.dart';
 import '../../screens/inspection/inspection_screen.dart';
 import '../../screens/inspection/inspection_success_screen.dart';
 import '../../screens/inspection/vehicle_details_screen.dart';
+import '../../screens/offline/local_inspections_screen.dart';
 import '../../screens/profile/profile_screen.dart';
 import '../../screens/reports/reports_screen.dart';
 import '../../screens/shell/main_shell.dart';
@@ -23,6 +25,8 @@ class RouteNames {
   static const vehicleDetails = 'vehicleDetails';
   static const inspection = 'inspection';
   static const inspectionSuccess = 'inspectionSuccess';
+  static const history = 'history';
+  static const offline = 'offline';
 }
 
 // --- Route paths ---
@@ -35,6 +39,8 @@ class RoutePaths {
   static const vehicleDetails = '/vehicle-details';
   static const inspection = '/inspection';
   static const inspectionSuccess = '/inspection/success';
+  static const history = '/history';
+  static const offline = '/offline';
 }
 
 /// Bridges Riverpod auth state → GoRouter (re-runs redirect on auth change).
@@ -95,14 +101,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               builder: (_, _) => const ReportsScreen(),
             ),
           ]),
-          StatefulShellBranch(routes: [
-            GoRoute(
-              path: RoutePaths.profile,
-              name: RouteNames.profile,
-              builder: (_, _) => const ProfileScreen(),
-            ),
-          ]),
         ],
+      ),
+      // Profile is reached from the home top-app-bar, not a bottom-nav tab.
+      GoRoute(
+        path: RoutePaths.profile,
+        name: RouteNames.profile,
+        builder: (_, _) => const ProfileScreen(),
       ),
       GoRoute(
         path: RoutePaths.vehicleDetails,
@@ -119,6 +124,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         name: RouteNames.inspectionSuccess,
         builder: (_, state) =>
             InspectionSuccessScreen(args: state.extra as InspectionSuccessArgs?),
+      ),
+      GoRoute(
+        path: RoutePaths.history,
+        name: RouteNames.history,
+        builder: (_, _) => const HistoryScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.offline,
+        name: RouteNames.offline,
+        builder: (_, _) => const LocalInspectionsScreen(),
       ),
     ],
     errorBuilder: (context, state) => Scaffold(
