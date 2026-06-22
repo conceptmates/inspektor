@@ -68,8 +68,8 @@ Legend: ⬜ todo · 🟦 in progress · ✅ done
 ## P6 — Inspection flow (the heart)  🟦 (P6a+P6b done; P6c/P6d pending)
 - [x] **P6a** `vehicle_details_screen.dart` (brand→model cascade + year/variant/colour/transmission → initialize → seed session) + catalog/setup controllers · widget test
 - [x] **P6b** `inspection_screen.dart` (dynamic one-field-at-a-time render: text/date/dropdown + remarks, prev/next/section nav, progress, autosave via session) + `buildSubmissionBody` (pure, tested) + `InspectionSubmitController` (online submit / offline queue) + `inspection_success_screen.dart` + success route
-- [ ] **P6c** media capture: image, video, audio, file, multi-image (≤11) → upload + offline queue; flag-issues sheet — *awaiting capture-UI decision*
-- [ ] **P6d** RC verify (`regno`), reference media + field-info sheet, exact resume position, lifecycle autosave flush; inspection screen widget test (Hive harness)
+- [x] **P6c** media capture (decision: **exact custom viewfinder**): ported `section_camera_card` + `section_video_camera_card`; `MediaStorageService` (compress/save); `MediaCaptureController` (upload-or-queue); `MediaFieldControl` (image/multi≤11/video/audio record+browse/file). Wired into form.
+- [ ] **P6d** RC verify (`regno` → ULIP), reference media + field-info sheet, flag-issues sheet, exact resume position, lifecycle autosave flush; inspection screen widget test (Hive harness)
 
 ## P7 — Reports / History / Offline  ⬜
 - [ ] `screens/reports/reports_screen.dart` (my-history, pagination, pull-refresh)
