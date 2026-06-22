@@ -38,6 +38,6 @@ void main() {
     expect(find.text('Vehicle Details'), findsOneWidget);
     expect(find.text('Make'), findsOneWidget);
     expect(find.text('Transmission'), findsOneWidget);
-    expect(find.text('Continue'), findsOneWidget);
+    expect(find.text('Start Inspection'), findsOneWidget);
   });
 }
