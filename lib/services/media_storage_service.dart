@@ -3,18 +3,56 @@ import 'dart:io';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:uuid/uuid.dart';
 
-/// Persists captured media into app storage (so it survives until upload).
-/// Images are compressed; other media are copied as-is.
+import '../utils/logger.dart';
+
+/// Persists captured media + a JSON mirror into a **user-visible** local folder
+/// so files show up in any file explorer:
+///   `/storage/emulated/0/Inspektor/{inspection_images,..,json}` on Android.
+/// Falls back to app-private documents storage when the public folder is
+/// unavailable (iOS, or all-files permission denied) so capture never fails.
 class MediaStorageService {
   const MediaStorageService();
 
   static const _uuid = Uuid();
+  static const appFolder = 'Inspektor';
+
+  /// Volume root from path_provider's external-files path: strips the
+  /// `/Android/data/<pkg>/files` suffix.
+  /// `/storage/emulated/0/Android/data/x/files` → `/storage/emulated/0`.
+  static String volumeRoot(String externalFilesPath) =>
+      externalFilesPath.split('/Android/').first;
+
+  /// Android 11+ → all-files access; older → legacy storage perm.
+  Future<bool> _ensurePermission() async {
+    if (await Permission.manageExternalStorage.isGranted) return true;
+    if ((await Permission.manageExternalStorage.request()).isGranted) {
+      return true;
+    }
+    return (await Permission.storage.request()).isGranted;
+  }
+
+  /// Resolve (and create) the `Inspektor` base dir. Public top-level on Android
+  /// when permitted, else app-private documents dir.
+  Future<Directory> _baseDir() async {
+    if (Platform.isAndroid && await _ensurePermission()) {
+      final ext = await getExternalStorageDirectory();
+      if (ext != null) {
+        final dir = Directory('${volumeRoot(ext.path)}/$appFolder');
+        try {
+          if (!dir.existsSync()) dir.createSync(recursive: true);
+          return dir;
+        } catch (_) {/* not writable → fall through to private storage */}
+      }
+    }
+    final base = await getApplicationDocumentsDirectory();
+    return Directory('${base.path}/$appFolder')..createSync(recursive: true);
+  }
 
   Future<String> _dir(String sub) async {
-    final base = await getApplicationDocumentsDirectory();
-    final dir = Directory('${base.path}/$sub');
+    final dir = Directory('${(await _baseDir()).path}/$sub');
     if (!dir.existsSync()) dir.createSync(recursive: true);
     return dir.path;
   }
@@ -36,6 +74,28 @@ class MediaStorageService {
     final ext = srcPath.contains('.') ? srcPath.split('.').last : 'bin';
     final target = '$dir/${_uuid.v4()}.$ext';
     return (await File(srcPath).copy(target)).path;
+  }
+
+  /// Mirror the inspection JSON next to its media (Hive stays source of truth).
+  /// Best-effort: a failed mirror never breaks the Hive save.
+  /// ponytail: writes on every draft mutation; add a debounce in the session
+  /// controller if it lags with many keystrokes.
+  Future<void> writeJson(String id, String json) async {
+    try {
+      await File('${await _dir('json')}/$id.json').writeAsString(json);
+    } catch (e, st) {
+      // Mirror is best-effort (Hive stays source of truth), but log so a
+      // silently-failing mirror is visible instead of looking like it saved.
+      AppLogger.error('JSON mirror write failed for $id',
+          error: e, stackTrace: st, name: 'MediaStorage');
+    }
+  }
+
+  Future<void> deleteJson(String id) async {
+    try {
+      final f = File('${await _dir('json')}/$id.json');
+      if (f.existsSync()) await f.delete();
+    } catch (_) {/* best-effort */}
   }
 }
 

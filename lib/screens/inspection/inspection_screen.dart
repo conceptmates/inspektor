@@ -22,6 +22,7 @@ import '../../models/local_inspection.dart';
 import '../../services/api/api_result.dart';
 import '../../themes/inspection_colors.dart';
 import 'inspection_success_screen.dart';
+import 'widgets/cached_reference_image.dart';
 import 'widgets/camera_hud.dart';
 import 'widgets/field_info_sheet.dart';
 import 'widgets/flag_issues_sheet.dart';
@@ -65,9 +66,13 @@ class _InspectionScreenState extends ConsumerState<InspectionScreen> {
 
   void _goNext(List<InspectionSection> sections) {
     final fields = _fields(sections[_sectionIndex]);
+    if (!_passesFieldGate(fields[_itemIndex.clamp(0, fields.length - 1)])) {
+      return;
+    }
     if (_itemIndex < fields.length - 1) {
       setState(() => _itemIndex++);
     } else if (_sectionIndex < sections.length - 1) {
+      _flushLeavingSection();
       setState(() {
         _sectionIndex++;
         _itemIndex = 0;
@@ -84,6 +89,7 @@ class _InspectionScreenState extends ConsumerState<InspectionScreen> {
     if (_itemIndex > 0) {
       setState(() => _itemIndex--);
     } else if (_sectionIndex > 0) {
+      _flushLeavingSection();
       setState(() {
         _sectionIndex--;
         _itemIndex = _fields(sections[_sectionIndex]).length - 1;
@@ -94,7 +100,75 @@ class _InspectionScreenState extends ConsumerState<InspectionScreen> {
     }
   }
 
+  /// Per-field gate on Next/Finish (ported from old app): required/regno fields
+  /// must be filled, and a captured photo/video must have its condition recorded
+  /// (flagged or marked no-issues) before advancing.
+  bool _passesFieldGate(InspectionField field) {
+    final draft = ref.read(inspectionSessionControllerProvider);
+    if (draft == null) return true;
+    final key = fieldKey(field);
+    final processed = _fieldProcessed(field, draft);
+
+    if ((field.isRequired || _isRegField(field)) && !processed) {
+      _gateSnack('"${field.title ?? key}" is required and must be '
+          'filled before proceeding.');
+      return false;
+    }
+
+    final isPhotoOrVideo = field.fieldType == 'image' ||
+        field.fieldType == 'video' ||
+        field.hasImage ||
+        field.hasVideo ||
+        field.hasMultipleImages;
+    if (isPhotoOrVideo && processed) {
+      final flagged = draft.itemFlaggedIssues[key] ?? const <String>[];
+      final value = draft.itemValues[key];
+      final marked =
+          flagged.isNotEmpty || value == 'no_issues' || value == 'flagged';
+      if (!marked) {
+        _gateSnack('Please flag an issue or mark as no issues before '
+            'proceeding.');
+        return false;
+      }
+    }
+    return true;
+  }
+
+  void _gateSnack(String msg) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(
+        content: Text(msg),
+        backgroundColor: Colors.red.shade700,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 3),
+      ));
+  }
+
+  /// Save-step the section being left to the server so progress persists
+  /// incrementally (batch per section, not per field). Online-only and
+  /// fire-and-forget: offline it no-ops via ApiNetworkError and the draft is
+  /// replayed at submit; save-step is idempotent (re-sending overwrites).
+  void _flushLeavingSection() {
+    final draft = ref.read(inspectionSessionControllerProvider);
+    final id = draft?.inspectionId;
+    final tmpl = draft?.inspectionTemplate;
+    if (draft == null || id == null || tmpl == null) return;
+    final sections =
+        _sections(InspectionInitializationResponse.fromJson(tmpl));
+    if (_sectionIndex < 0 || _sectionIndex >= sections.length) return;
+    final section = sections[_sectionIndex];
+    final items = buildSectionItems(section: section, draft: draft);
+    if (items.isEmpty) return;
+    unawaited(ref.read(inspectionRepositoryProvider).saveStep(
+          id: id,
+          section: section.name ?? 'section_${section.id}',
+          items: items,
+        ));
+  }
+
   void _jumpTo(int sectionIndex, int fieldIndex) {
+    if (sectionIndex != _sectionIndex) _flushLeavingSection();
     setState(() {
       _sectionIndex = sectionIndex;
       _itemIndex = fieldIndex;
@@ -122,10 +196,34 @@ class _InspectionScreenState extends ConsumerState<InspectionScreen> {
         ],
       ),
     );
-    if (stop == true && mounted) context.pop();
+    if (stop == true && mounted) _leave();
+  }
+
+  /// Inspection is entered via `go` (sole page on the stack), so `pop()` would
+  /// throw `nothing to pop`. Pop if we can, else fall back to home.
+  void _leave() {
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.goNamed(RouteNames.home);
+    }
   }
 
   Future<void> _confirmSubmit() async {
+    // Validate required fields client-side first (ported from the old app) so we
+    // never POST an incomplete inspection and bounce off a server 422 (e.g.
+    // "The registration number field is required").
+    final draft = ref.read(inspectionSessionControllerProvider);
+    if (draft?.inspectionTemplate != null) {
+      final template =
+          InspectionInitializationResponse.fromJson(draft!.inspectionTemplate!);
+      final missing = _missingRequired(_sections(template), draft);
+      if (missing.isNotEmpty) {
+        await _showRequiredFieldsSheet(missing);
+        return;
+      }
+    }
+
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) {
@@ -159,12 +257,151 @@ class _InspectionScreenState extends ConsumerState<InspectionScreen> {
     if (!mounted) return;
     if (outcome.error != null) {
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(outcome.error!)));
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(
+          content: Text(outcome.error!),
+          backgroundColor: Theme.of(context).colorScheme.error,
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 5),
+          action: SnackBarAction(
+            label: 'Dismiss',
+            textColor: Colors.white,
+            onPressed: () =>
+                ScaffoldMessenger.of(context).hideCurrentSnackBar(),
+          ),
+        ));
       return;
     }
     context.goNamed(
       RouteNames.inspectionSuccess,
       extra: InspectionSuccessArgs(outcome: outcome),
+    );
+  }
+
+  // --- required-field validation (ported from old app) ----------------------
+
+  bool _isRegField(InspectionField f) {
+    final id = f.fieldId?.toLowerCase() ?? '';
+    return id == 'regno' || id.contains('reg');
+  }
+
+  /// Required (or registration-number) fields with no value/media, across all
+  /// sections. The registration number is always treated as required because the
+  /// server rejects an empty one even when the template doesn't flag it.
+  List<({int section, int field, String label})> _missingRequired(
+      List<InspectionSection> sections, LocalInspection draft) {
+    final missing = <({int section, int field, String label})>[];
+    for (var s = 0; s < sections.length; s++) {
+      final fields = _fields(sections[s]);
+      for (var i = 0; i < fields.length; i++) {
+        final f = fields[i];
+        final mustHave = f.isRequired || _isRegField(f);
+        if (mustHave && !_fieldProcessed(f, draft)) {
+          missing.add((
+            section: s,
+            field: i,
+            label: '${f.title ?? fieldKey(f)}${_missingTypeSuffix(f)}',
+          ));
+        }
+      }
+    }
+    return missing;
+  }
+
+  String _missingTypeSuffix(InspectionField f) {
+    if (f.fieldType == 'image' || f.hasImage || f.hasMultipleImages) {
+      return ' (photo)';
+    }
+    if (f.fieldType == 'video' || f.hasVideo) return ' (video)';
+    if (f.fieldType == 'audio') return ' (audio)';
+    if (f.fieldType == 'file' || f.hasFile) return ' (file)';
+    return '';
+  }
+
+  Future<void> _showRequiredFieldsSheet(
+      List<({int section, int field, String label})> missing) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: const Color(0xFF1A1A1A),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(20.w, 16.w, 20.w, 16.w),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.checklist_rtl, color: Colors.orange, size: 22.sp),
+                  SizedBox(width: 10.w),
+                  Text('Almost done',
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18.sp,
+                          fontWeight: FontWeight.w700)),
+                ],
+              ),
+              SizedBox(height: 4.w),
+              Text(
+                '${missing.length} required '
+                '${missing.length == 1 ? "item" : "items"} left to complete',
+                style: TextStyle(color: Colors.white60, fontSize: 13.sp),
+              ),
+              SizedBox(height: 12.w),
+              Flexible(
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: missing.length,
+                  separatorBuilder: (_, _) => Divider(
+                      height: 1, color: Colors.white.withAlpha(15)),
+                  itemBuilder: (_, idx) {
+                    final m = missing[idx];
+                    return ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(Icons.error_outline,
+                          color: Colors.orange, size: 20.sp),
+                      title: Text(m.label,
+                          style: TextStyle(
+                              color: Colors.white, fontSize: 14.sp)),
+                      subtitle: Text('Section ${m.section + 1}',
+                          style: TextStyle(
+                              color: Colors.white38, fontSize: 11.sp)),
+                      trailing: Icon(Icons.chevron_right,
+                          color: Colors.white38, size: 20.sp),
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        _jumpTo(m.section, m.field);
+                      },
+                    );
+                  },
+                ),
+              ),
+              SizedBox(height: 12.w),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: InspectionColors.navBlue,
+                    foregroundColor: Colors.white,
+                    padding: EdgeInsets.symmetric(vertical: 14.w),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12.r)),
+                  ),
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    _jumpTo(missing.first.section, missing.first.field);
+                  },
+                  icon: Icon(Icons.arrow_forward, size: 18.sp),
+                  label: const Text('Go to first missing field'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -202,7 +439,7 @@ class _InspectionScreenState extends ConsumerState<InspectionScreen> {
     if (sections.isEmpty) {
       return Scaffold(
         backgroundColor: Colors.black,
-        body: _EmptyState(onBack: () => context.pop()),
+        body: _EmptyState(onBack: _leave),
       );
     }
 
@@ -963,6 +1200,15 @@ class _MediaFieldHudState extends ConsumerState<_MediaFieldHud> {
   bool _flashOn = false;
   bool _highlightFlag = false;
 
+  // Set once the embedded live camera is ready; the bottom-panel shutter/flash/
+  // record buttons drive the live preview through these instead of launching a
+  // separate route.
+  VoidCallback? _captureTrigger;
+  VoidCallback? _flashTrigger;
+  VoidCallback? _recordTrigger;
+  bool _videoRecording = false;
+  Duration _videoElapsed = Duration.zero;
+
   // audio recording state
   final _recorder = AudioRecorder();
   bool _recordingAudio = false;
@@ -988,18 +1234,15 @@ class _MediaFieldHudState extends ConsumerState<_MediaFieldHud> {
     return CaptureMode.photo;
   }
 
-  Set<CaptureMode> get _available {
-    final f = widget.field;
-    final s = <CaptureMode>{};
-    if (f.fieldType == 'image' || f.hasImage || f.hasMultipleImages) {
-      s.add(CaptureMode.photo);
-    }
-    if (f.fieldType == 'video' || f.hasVideo) s.add(CaptureMode.video);
-    if (f.fieldType == 'audio') s.add(CaptureMode.audio);
-    if (f.fieldType == 'file' || f.hasFile) s.add(CaptureMode.file);
-    if (s.isEmpty) s.add(CaptureMode.photo);
-    return s;
-  }
+  // Like the old app, every media field can switch to any capture type — the
+  // inspector chooses photo/video/file/audio freely. [_defaultMode] just picks
+  // the sensible starting tab from the field's declared type.
+  static const Set<CaptureMode> _available = {
+    CaptureMode.file,
+    CaptureMode.photo,
+    CaptureMode.video,
+    CaptureMode.audio,
+  };
 
   @override
   void dispose() {
@@ -1032,6 +1275,86 @@ class _MediaFieldHudState extends ConsumerState<_MediaFieldHud> {
     } else {
       await _capture.captureImage(
           key: _key, section: widget.sectionName, savedOrRawPath: file.path);
+    }
+  }
+
+  /// Live in-HUD viewfinder (camera on). The bottom-panel shutter/flash drive it
+  /// via [_captureTrigger]/[_flashTrigger] set on init — matching the old app's
+  /// embedded camera, instead of pushing a separate full-screen route.
+  Widget _buildLiveCamera({required void Function(XFile file) onCapture}) {
+    return SectionCameraCard(
+      showControls: false,
+      onCapture: onCapture,
+      onCaptureReady: (fn) {
+        if (mounted) setState(() => _captureTrigger = fn);
+      },
+      onFlashReady: (fn) {
+        if (mounted) setState(() => _flashTrigger = fn);
+      },
+      onFlashModeChanged: (on) {
+        if (mounted) setState(() => _flashOn = on);
+      },
+    );
+  }
+
+  /// Live in-HUD video viewfinder (camera on). The bottom-panel record/flash
+  /// buttons drive it via [_recordTrigger]/[_flashTrigger]; on stop the video is
+  /// emitted straight to the draft, like the photo flow.
+  Widget _buildLiveVideoCamera() {
+    return SectionVideoCameraCard(
+      showControls: false,
+      onCaptured: (file) => _capture.captureVideo(
+          key: _key, section: widget.sectionName, rawPath: file.path),
+      onRecordReady: (fn) {
+        if (mounted) setState(() => _recordTrigger = fn);
+      },
+      onFlashReady: (fn) {
+        if (mounted) setState(() => _flashTrigger = fn);
+      },
+      onFlashModeChanged: (on) {
+        if (mounted) setState(() => _flashOn = on);
+      },
+      onRecordingChanged: (recording, elapsed) {
+        if (mounted) {
+          setState(() {
+            _videoRecording = recording;
+            _videoElapsed = elapsed;
+          });
+        }
+      },
+    );
+  }
+
+  void _onPhotoShutter() {
+    final trigger = _captureTrigger;
+    if (trigger != null) {
+      trigger();
+    } else {
+      _launchPhotoCamera(); // fallback (e.g. adding to a multi-image grid)
+    }
+  }
+
+  void _onVideoRecord() {
+    final trigger = _recordTrigger;
+    if (trigger != null) {
+      trigger();
+    } else {
+      _launchVideoCamera(); // fallback if the live camera failed to start
+    }
+  }
+
+  String _fmtDuration(Duration d) {
+    final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$m:$s';
+  }
+
+  void _onFlashToggle() {
+    final trigger = _flashTrigger;
+    if (trigger != null) {
+      trigger();
+    } else {
+      setState(() => _flashOn = !_flashOn);
     }
   }
 
@@ -1213,6 +1536,49 @@ class _MediaFieldHudState extends ConsumerState<_MediaFieldHud> {
                     ],
                   ),
                 ),
+              if (_mode == CaptureMode.video && _videoRecording)
+                HudPillBadge(
+                  border: Colors.red,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 8.w,
+                        height: 8.w,
+                        decoration: const BoxDecoration(
+                            color: Colors.red, shape: BoxShape.circle),
+                      ),
+                      SizedBox(width: 6.w),
+                      Text('REC ${_fmtDuration(_videoElapsed)}',
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 12.sp,
+                              fontWeight: FontWeight.w600)),
+                    ],
+                  ),
+                ),
+              // Re-record: discard captured video/audio so the live
+              // camera/recorder returns for the field.
+              if ((_mode == CaptureMode.video || _mode == CaptureMode.audio) &&
+                  hasMedia)
+                HudPillBadge(
+                  border: Colors.white30,
+                  onTap: () => _mode == CaptureMode.video
+                      ? _session.removeVideo(_key)
+                      : _session.removeAudio(_key),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.refresh, color: Colors.white, size: 14.sp),
+                      SizedBox(width: 4.w),
+                      Text('Re-record',
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 12.sp,
+                              fontWeight: FontWeight.w600)),
+                    ],
+                  ),
+                ),
               ConditionFlagRow(
                 flaggedCount: flagged.length,
                 markedNoIssues: markedNoIssues,
@@ -1249,23 +1615,19 @@ class _MediaFieldHudState extends ConsumerState<_MediaFieldHud> {
           return CapturedMediaPreview(
             mode: CaptureMode.photo,
             imagePath: p,
-            onTapImage: () => _showFullscreenImage(p),
+            onTapImage: () =>
+                _showFullscreenImage(p, onDelete: () => _session.removeImage(_key)),
           );
         }
-        return CaptureEmptyState(
-          icon: Icons.photo_camera_outlined,
-          hint: 'Tap the shutter to open the camera',
-          onTap: _launchPhotoCamera,
+        return _buildLiveCamera(
+          onCapture: (file) => _capture.captureImage(
+              key: _key, section: widget.sectionName, savedOrRawPath: file.path),
         );
       case CaptureMode.video:
         if (draft?.itemVideos[_key] != null) {
           return const CapturedMediaPreview(mode: CaptureMode.video);
         }
-        return CaptureEmptyState(
-          icon: Icons.videocam_outlined,
-          hint: 'Tap record to open the camera',
-          onTap: _launchVideoCamera,
-        );
+        return _buildLiveVideoCamera();
       case CaptureMode.file:
         final f = draft?.itemFiles[_key];
         if (f != null) {
@@ -1296,10 +1658,9 @@ class _MediaFieldHudState extends ConsumerState<_MediaFieldHud> {
     return Container(
       color: const Color(0xFF111111),
       child: images.isEmpty
-          ? CaptureEmptyState(
-              icon: Icons.photo_library_outlined,
-              hint: 'Tap the shutter to add photos',
-              onTap: _launchPhotoCamera,
+          ? _buildLiveCamera(
+              onCapture: (file) => _capture.addImageToMulti(
+                  key: _key, section: widget.sectionName, rawPath: file.path),
             )
           : Padding(
               padding: EdgeInsets.fromLTRB(12.w, 50.w, 12.w, 56.w),
@@ -1315,18 +1676,28 @@ class _MediaFieldHudState extends ConsumerState<_MediaFieldHud> {
                       spacing: 8.w,
                       runSpacing: 8.w,
                       children: [
-                        for (final p in images)
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(8.r),
-                            child: p.startsWith('http')
-                                ? Image.network(p,
-                                    width: 70.w,
-                                    height: 70.w,
-                                    fit: BoxFit.cover)
-                                : Image.file(File(p),
-                                    width: 70.w,
-                                    height: 70.w,
-                                    fit: BoxFit.cover),
+                        for (var i = 0; i < images.length; i++)
+                          _MultiThumb(
+                            path: images[i],
+                            onTap: () => _showFullscreenImage(images[i],
+                                onDelete: () =>
+                                    _session.removeMultiImageAt(_key, i)),
+                            onRemove: () => _session.removeMultiImageAt(_key, i),
+                          ),
+                        if (images.length < _maxMultiImages)
+                          GestureDetector(
+                            onTap: _launchPhotoCamera,
+                            child: Container(
+                              width: 70.w,
+                              height: 70.w,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(8.r),
+                                border: Border.all(color: Colors.white30),
+                                color: Colors.white.withAlpha(10),
+                              ),
+                              child: Icon(Icons.add_a_photo_outlined,
+                                  color: Colors.white60, size: 24.sp),
+                            ),
                           ),
                       ],
                     ),
@@ -1411,6 +1782,12 @@ class _MediaFieldHudState extends ConsumerState<_MediaFieldHud> {
                 onChanged: (m) => setState(() {
                   _mode = m;
                   _flashOn = false;
+                  // Triggers belong to the viewfinder being torn down.
+                  _captureTrigger = null;
+                  _flashTrigger = null;
+                  _recordTrigger = null;
+                  _videoRecording = false;
+                  _videoElapsed = Duration.zero;
                 }),
               ),
               if (showCameraRow) ...[
@@ -1438,9 +1815,12 @@ class _MediaFieldHudState extends ConsumerState<_MediaFieldHud> {
             icon: _mode == CaptureMode.video
                 ? Icons.video_library_outlined
                 : Icons.photo_library_outlined,
-            onTap: _mode == CaptureMode.video
-                ? _pickVideoFromGallery
-                : _pickPhotoFromGallery,
+            enabled: !_videoRecording,
+            onTap: _videoRecording
+                ? null
+                : (_mode == CaptureMode.video
+                    ? _pickVideoFromGallery
+                    : _pickPhotoFromGallery),
           )
         else
           SizedBox(width: 46.w, height: 46.w),
@@ -1449,7 +1829,7 @@ class _MediaFieldHudState extends ConsumerState<_MediaFieldHud> {
           HudSideButton(
             icon: _flashOn ? Icons.flash_on : Icons.flash_off,
             active: _flashOn,
-            onTap: () => setState(() => _flashOn = !_flashOn),
+            onTap: _onFlashToggle,
           )
         else
           SizedBox(width: 46.w, height: 46.w),
@@ -1460,9 +1840,9 @@ class _MediaFieldHudState extends ConsumerState<_MediaFieldHud> {
   Widget _buildMainAction() {
     switch (_mode) {
       case CaptureMode.photo:
-        return ShutterButton(onTap: _launchPhotoCamera);
+        return ShutterButton(onTap: _onPhotoShutter);
       case CaptureMode.video:
-        return RecordButton(recording: false, onTap: _launchVideoCamera);
+        return RecordButton(recording: _videoRecording, onTap: _onVideoRecord);
       case CaptureMode.file:
         return HudRoundActionButton(
           icon: Icons.attach_file,
@@ -1484,15 +1864,33 @@ class _MediaFieldHudState extends ConsumerState<_MediaFieldHud> {
     }
   }
 
-  void _showFullscreenImage(String path) {
+  void _showFullscreenImage(String path, {VoidCallback? onDelete}) {
     Navigator.of(context).push(MaterialPageRoute<void>(
       builder: (ctx) => Scaffold(
         backgroundColor: Colors.black,
-        appBar: AppBar(backgroundColor: Colors.black, foregroundColor: Colors.white),
+        appBar: AppBar(
+          backgroundColor: Colors.black,
+          foregroundColor: Colors.white,
+          actions: [
+            if (onDelete != null)
+              IconButton(
+                icon: const Icon(Icons.delete_outline),
+                tooltip: 'Delete',
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  onDelete();
+                },
+              ),
+          ],
+        ),
         body: Center(
-          child: path.startsWith('http')
-              ? Image.network(path)
-              : Image.file(File(path)),
+          child: InteractiveViewer(
+            minScale: 0.5,
+            maxScale: 4,
+            child: path.startsWith('http')
+                ? Image.network(path)
+                : Image.file(File(path)),
+          ),
         ),
       ),
     ));
@@ -1503,7 +1901,7 @@ class _MediaFieldHudState extends ConsumerState<_MediaFieldHud> {
       builder: (ctx) => Scaffold(
         backgroundColor: Colors.black,
         appBar: AppBar(backgroundColor: Colors.black, foregroundColor: Colors.white),
-        body: Center(child: Image.network(url)),
+        body: Center(child: CachedReferenceImage(url)),
       ),
     ));
   }
@@ -1512,6 +1910,57 @@ class _MediaFieldHudState extends ConsumerState<_MediaFieldHud> {
 // ===========================================================================
 // Full-screen camera launch wrappers (reuse the self-contained cards)
 // ===========================================================================
+
+/// A multi-image grid thumbnail with a tap-to-preview and a remove (X) badge.
+class _MultiThumb extends StatelessWidget {
+  const _MultiThumb({
+    required this.path,
+    required this.onTap,
+    required this.onRemove,
+  });
+
+  final String path;
+  final VoidCallback onTap;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        GestureDetector(
+          onTap: onTap,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(8.r),
+            child: path.startsWith('http')
+                ? Image.network(path,
+                    width: 70.w, height: 70.w, fit: BoxFit.cover)
+                : Image.file(File(path),
+                    width: 70.w, height: 70.w, fit: BoxFit.cover),
+          ),
+        ),
+        Positioned(
+          top: -6.w,
+          right: -6.w,
+          child: GestureDetector(
+            onTap: onRemove,
+            child: Container(
+              width: 22.w,
+              height: 22.w,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: Colors.red,
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 1.5),
+              ),
+              child: Icon(Icons.close, color: Colors.white, size: 13.sp),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
 
 class _FullScreenCamera extends StatelessWidget {
   const _FullScreenCamera({this.instruction, this.flashOn = false});

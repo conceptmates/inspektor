@@ -111,13 +111,24 @@ class ApiWrapper {
   }
 
   static String? _extractMessage(dynamic data) {
-    if (data is Map) {
-      final m = data['message'] ??
-          data['error'] ??
-          (data['errors'] is Map ? (data['errors'] as Map).values.first : null);
-      if (m is String) return m;
-      if (m is List && m.isNotEmpty) return m.first.toString();
+    if (data is! Map) return null;
+    final summary = _asString(data['message']);
+    final detail = _asString(data['error']) ??
+        (data['errors'] is Map
+            ? _asString((data['errors'] as Map).values.first)
+            : null);
+    // Show both when the server sends a generic summary plus a specific detail
+    // (e.g. "Failed to create inspection: The registration number field is
+    // required.") so the user sees the actionable part.
+    if (summary != null && detail != null && detail != summary) {
+      return '$summary: $detail';
     }
+    return summary ?? detail;
+  }
+
+  static String? _asString(dynamic v) {
+    if (v is String) return v;
+    if (v is List && v.isNotEmpty) return v.first.toString();
     return null;
   }
 }

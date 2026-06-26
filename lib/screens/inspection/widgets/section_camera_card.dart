@@ -29,12 +29,18 @@ class SectionCameraCard extends StatefulWidget {
     required this.onCapture,
     this.onPickFromGallery,
     this.instructionText,
+    this.showControls = true,
+    this.onCaptureReady,
+    this.onFlashReady,
+    this.onFlashModeChanged,
   });
 
   /// Card height. Falls back to a sensible default when null.
   final double? height;
 
-  /// Called with the final [XFile] once the user accepts a captured photo.
+  /// Called with the captured [XFile]. With [showControls] true this fires once
+  /// the user accepts in the review overlay; with it false (embedded HUD mode)
+  /// it fires straight after capture, with no review overlay.
   final void Function(XFile file) onCapture;
 
   /// Optional gallery picker. When null the gallery button is hidden.
@@ -42,6 +48,23 @@ class SectionCameraCard extends StatefulWidget {
 
   /// Shown above the preview so users know what this photo is for.
   final String? instructionText;
+
+  /// When false the card is a pure live viewfinder — no instruction overlay, no
+  /// bottom shutter/gallery row, no border. Drive capture/torch from an external
+  /// button via [onCaptureReady] / [onFlashReady]. Used by the inline inspection
+  /// HUD so the camera is live the whole time.
+  final bool showControls;
+
+  /// Called once the camera initialises, with a callback that captures a photo.
+  /// Only useful when [showControls] is false.
+  final void Function(VoidCallback captureNow)? onCaptureReady;
+
+  /// Called once the camera initialises, with a callback that toggles the torch.
+  /// Only useful when [showControls] is false.
+  final void Function(VoidCallback toggleFlash)? onFlashReady;
+
+  /// Called whenever the torch turns on/off so an external button can reflect it.
+  final void Function(bool isOn)? onFlashModeChanged;
 
   @override
   State<SectionCameraCard> createState() => _SectionCameraCardState();
@@ -89,13 +112,19 @@ class _SectionCameraCardState extends State<SectionCameraCard>
         state == AppLifecycleState.paused ||
         state == AppLifecycleState.detached) {
       // Cancel any in-flight init (e.g. waiting for iOS permission dialog).
+      // Do NOT clear _isInitializing here: _disposeController must still see it
+      // set so it DEFERS disposal while initialize() is in flight — disposing a
+      // controller mid-initialize crashes the platform channel. _tryStartCamera
+      // performs the single safe disposal once init resolves.
       _initGeneration++;
-      _isInitializing = false;
       _disposeController();
       if (mounted) {
         setState(() => _isInitialized = false);
       }
     } else if (state == AppLifecycleState.resumed && mounted) {
+      // The cancelled in-flight init won't reset its own flag (generation
+      // mismatch), so clear it here or _initCamera's guard would block re-init.
+      _isInitializing = false;
       _initCamera();
     }
   }
@@ -260,6 +289,8 @@ class _SectionCameraCardState extends State<SectionCameraCard>
         _isInitialized = true;
         _hasError = false;
       });
+      widget.onCaptureReady?.call(_captureImage);
+      widget.onFlashReady?.call(_toggleFlash);
       return true;
     } on CameraException {
       _isDisposePending = false;
@@ -300,7 +331,13 @@ class _SectionCameraCardState extends State<SectionCameraCard>
     try {
       final file = await _controller!.takePicture();
       if (!mounted) return;
-      await _openReviewOverlay(file);
+      // Embedded HUD mode skips the in-card review overlay — the inspection HUD
+      // shows the captured photo with its own Retake action.
+      if (widget.showControls) {
+        await _openReviewOverlay(file);
+      } else {
+        widget.onCapture(file);
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -331,7 +368,10 @@ class _SectionCameraCardState extends State<SectionCameraCard>
     final next = _flashMode == FlashMode.off ? FlashMode.torch : FlashMode.off;
     try {
       await _controller!.setFlashMode(next);
-      if (mounted) setState(() => _flashMode = next);
+      if (mounted) {
+        setState(() => _flashMode = next);
+        widget.onFlashModeChanged?.call(next != FlashMode.off);
+      }
     } catch (_) {
       // Ignore — some devices/lenses don't support a torch.
     }
@@ -475,7 +515,9 @@ class _SectionCameraCardState extends State<SectionCameraCard>
       decoration: BoxDecoration(
         color: Colors.black,
         borderRadius: radius,
-        border: Border.all(color: colorScheme.primary.withAlpha(100), width: 1.5),
+        border: widget.showControls
+            ? Border.all(color: colorScheme.primary.withAlpha(100), width: 1.5)
+            : null,
       ),
       child: ClipRRect(
         borderRadius: radius,
@@ -483,8 +525,10 @@ class _SectionCameraCardState extends State<SectionCameraCard>
           fit: StackFit.expand,
           children: [
             Center(child: CameraPreview(_controller!)),
-            _buildInstructionBar(),
-            _buildControlBar(),
+            if (widget.showControls) ...[
+              _buildInstructionBar(),
+              _buildControlBar(),
+            ],
             if (_isCapturing)
               ColoredBox(
                 color: Colors.white.withAlpha(100),

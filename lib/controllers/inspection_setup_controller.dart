@@ -1,7 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/repositories/inspection_repository.dart';
+import '../models/inspection_template_model.dart';
 import '../services/api/api_result.dart';
+import '../services/reference_media_cache.dart';
 import 'inspection_session_controller.dart';
 
 /// Brand+model catalog for the vehicle-details dropdowns.
@@ -53,6 +57,11 @@ class InspectionSetupController extends Notifier<SetupState> {
 
     switch (res) {
       case ApiSuccess(:final data):
+        // Warm the offline reference-image cache now, while definitely online,
+        // so guides stay visible if the inspector drops offline mid-inspection.
+        // Fire-and-forget — never blocks the flow.
+        unawaited(
+            ReferenceMediaCache.prefetch(data.template.referenceImageUrls));
         ref.read(inspectionSessionControllerProvider.notifier).startNew(
               vehicleDetails: vehicleDetails,
               template: data.template.toJson(),

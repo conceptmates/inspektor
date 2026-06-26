@@ -4,6 +4,17 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:inspektor/models/local_inspection.dart';
 import 'package:inspektor/services/local_inspection_service.dart';
+import 'package:inspektor/services/media_storage_service.dart';
+
+/// Records JSON-mirror deletes (and skips real file I/O, which needs plugins).
+class _SpyMedia extends MediaStorageService {
+  _SpyMedia(this.deleted) : super();
+  final List<String> deleted;
+  @override
+  Future<void> writeJson(String id, String json) async {}
+  @override
+  Future<void> deleteJson(String id) async => deleted.add(id);
+}
 
 void main() {
   late Directory dir;
@@ -59,5 +70,25 @@ void main() {
     ));
     final withMedia = svc.getPendingWithMedia();
     expect(withMedia.single.id, 'with-media');
+  });
+
+  test('clearDraft keeps the JSON mirror when a pending entry shares the id',
+      () async {
+    final deleted = <String>[];
+    final spySvc = LocalInspectionService(box, _SpyMedia(deleted));
+    await spySvc.saveDraft(make('shared', LocalStatus.draft));
+    await spySvc.upsertPending(make('shared', LocalStatus.pending)); // offline submit
+    await spySvc.clearDraft();
+    expect(spySvc.getById('shared'), isNotNull); // queue entry survives
+    expect(deleted, isEmpty); // its mirror was NOT collateral-deleted
+  });
+
+  test('clearDraft deletes the JSON mirror when no queue entry shares the id',
+      () async {
+    final deleted = <String>[];
+    final spySvc = LocalInspectionService(box, _SpyMedia(deleted));
+    await spySvc.saveDraft(make('solo', LocalStatus.draft));
+    await spySvc.clearDraft();
+    expect(deleted, ['solo']);
   });
 }

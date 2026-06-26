@@ -103,4 +103,16 @@ void main() {
   test('connection error -> ApiNetworkError', () async {
     expect(await _wrapper(_ThrowingAdapter()).get('/x'), isA<ApiNetworkError>());
   });
+
+  test('500 with summary + detail combines into one actionable message',
+      () async {
+    final r = await _wrapper(_CannedAdapter(500, {
+      'status': 'error',
+      'message': 'Failed to create inspection',
+      'error': 'The registration number field is required.',
+    })).post('/x');
+    expect(r, isA<ApiServerError>());
+    expect((r as ApiServerError).message,
+        'Failed to create inspection: The registration number field is required.');
+  });
 }

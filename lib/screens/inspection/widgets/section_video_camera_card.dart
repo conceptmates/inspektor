@@ -21,11 +21,38 @@ class SectionVideoCameraCard extends StatefulWidget {
     this.height,
     required this.onCaptured,
     this.instructionText,
+    this.showControls = true,
+    this.onRecordReady,
+    this.onFlashReady,
+    this.onFlashModeChanged,
+    this.onRecordingChanged,
   });
 
   final double? height;
   final void Function(XFile file) onCaptured;
   final String? instructionText;
+
+  /// When false the card is a pure live viewfinder — no instruction/record
+  /// overlay, no border. Drive record/torch from an external button via
+  /// [onRecordReady] / [onFlashReady]. On stop it emits straight through
+  /// [onCaptured] (no in-card review). Used by the inline inspection HUD so the
+  /// camera is live the whole time.
+  final bool showControls;
+
+  /// Called once the camera initialises, with a callback that toggles recording.
+  /// Only useful when [showControls] is false.
+  final void Function(VoidCallback toggleRecording)? onRecordReady;
+
+  /// Called once the camera initialises, with a callback that toggles the torch.
+  /// Only useful when [showControls] is false.
+  final void Function(VoidCallback toggleFlash)? onFlashReady;
+
+  /// Called whenever the torch turns on/off so an external button can reflect it.
+  final void Function(bool isOn)? onFlashModeChanged;
+
+  /// Called whenever recording starts/stops or the elapsed time ticks, so an
+  /// external record button + timer can reflect it.
+  final void Function(bool isRecording, Duration elapsed)? onRecordingChanged;
 
   @override
   State<SectionVideoCameraCard> createState() => _SectionVideoCameraCardState();
@@ -68,17 +95,24 @@ class _SectionVideoCameraCardState extends State<SectionVideoCameraCard>
   }
 
   @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
+  Future<void> didChangeAppLifecycleState(AppLifecycleState state) async {
     if (state == AppLifecycleState.inactive ||
         state == AppLifecycleState.paused ||
         state == AppLifecycleState.detached) {
       // Cancel any in-flight init (e.g. waiting for iOS permission dialog).
       _initGeneration++;
-      _isInitializing = false;
-      _stopRecordingIfActive();
+      // Finish stopping an in-progress recording BEFORE releasing the
+      // controller — stopVideoRecording() and controller.dispose() on the same
+      // controller race otherwise. Keep _isInitializing set so _disposeController
+      // still defers disposal while initialize() is in flight.
+      await _stopRecordingIfActive();
+      if (!mounted) return;
       _disposeController();
       if (mounted) setState(() => _isInitialized = false);
     } else if (state == AppLifecycleState.resumed && mounted) {
+      // Clear the flag the cancelled in-flight init couldn't reset (generation
+      // mismatch) so _initCamera can re-run.
+      _isInitializing = false;
       // Don't re-init the live camera while the user is reviewing a recording.
       if (_capturedFile == null) _initCamera();
     }
@@ -229,8 +263,15 @@ class _SectionVideoCameraCardState extends State<SectionVideoCameraCard>
 
     final controller = CameraController(
       camera,
-      ResolutionPreset.max,
+      // 1080p capture. Encoder compresses in real time to the bitrate below,
+      // so the file is born small — no post-capture compression step needed.
+      ResolutionPreset.veryHigh,
       enableAudio: true,
+      fps: 30,
+      // ~5 Mbps: high quality at 1080p30, ~38 MB/min. Default recorder runs
+      // 12-20 Mbps. Tune up for sharper / down for smaller uploads.
+      videoBitrate: 5000000,
+      audioBitrate: 128000,
     );
     _controller = controller;
 
@@ -247,6 +288,9 @@ class _SectionVideoCameraCardState extends State<SectionVideoCameraCard>
         _hasError = false;
         _flashOn = false;
       });
+      widget.onRecordReady?.call(_toggleRecording);
+      widget.onFlashReady?.call(_toggleFlash);
+      widget.onFlashModeChanged?.call(false);
       return true;
     } on CameraException {
       _isDisposePending = false;
@@ -289,9 +333,15 @@ class _SectionVideoCameraCardState extends State<SectionVideoCameraCard>
     final next = _flashOn ? FlashMode.off : FlashMode.torch;
     try {
       await _controller!.setFlashMode(next);
-      if (mounted) setState(() => _flashOn = !_flashOn);
+      if (mounted) {
+        setState(() => _flashOn = !_flashOn);
+        widget.onFlashModeChanged?.call(_flashOn);
+      }
     } catch (_) {}
   }
+
+  void _notifyRecording() =>
+      widget.onRecordingChanged?.call(_isRecording, _elapsed);
 
   Future<void> _toggleRecording() async {
     if (_isToggling ||
@@ -325,9 +375,13 @@ class _SectionVideoCameraCardState extends State<SectionVideoCameraCard>
       await _controller!.startVideoRecording();
       _elapsed = Duration.zero;
       _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-        if (mounted) setState(() => _elapsed += const Duration(seconds: 1));
+        if (mounted) {
+          setState(() => _elapsed += const Duration(seconds: 1));
+          _notifyRecording();
+        }
       });
       if (mounted) setState(() => _isRecording = true);
+      _notifyRecording();
     } on CameraException catch (e) {
       if (mounted) {
         final msg = e.description?.toLowerCase() ?? '';
@@ -359,6 +413,14 @@ class _SectionVideoCameraCardState extends State<SectionVideoCameraCard>
 
     try {
       final file = await _controller!.stopVideoRecording();
+      if (!widget.showControls) {
+        // Embedded HUD mode: emit straight away; the HUD shows the captured
+        // state and its own retake, matching the photo flow.
+        if (mounted) setState(() => _isRecording = false);
+        _notifyRecording();
+        widget.onCaptured(file);
+        return;
+      }
       if (mounted) {
         setState(() {
           _isRecording = false;
@@ -643,12 +705,17 @@ class _SectionVideoCameraCardState extends State<SectionVideoCameraCard>
       decoration: BoxDecoration(
         color: Colors.black,
         borderRadius: radius,
-        border: Border.all(
-          color: _isRecording
-              ? Colors.red.withValues(alpha: 0.78)
-              : Theme.of(context).colorScheme.primary.withValues(alpha: 0.4),
-          width: _isRecording ? 2.w : 1.5.w,
-        ),
+        border: widget.showControls
+            ? Border.all(
+                color: _isRecording
+                    ? Colors.red.withValues(alpha: 0.78)
+                    : Theme.of(context)
+                        .colorScheme
+                        .primary
+                        .withValues(alpha: 0.4),
+                width: _isRecording ? 2.w : 1.5.w,
+              )
+            : null,
       ),
       child: ClipRRect(
         borderRadius: radius,
@@ -657,7 +724,8 @@ class _SectionVideoCameraCardState extends State<SectionVideoCameraCard>
           children: [
             Center(child: CameraPreview(_controller!)),
             // Top bar: recording timer or instruction.
-            Positioned(
+            if (widget.showControls)
+              Positioned(
               top: 0,
               left: 0,
               right: 0,
@@ -720,7 +788,8 @@ class _SectionVideoCameraCardState extends State<SectionVideoCameraCard>
               ),
             ),
             // Bottom bar: flash + record/stop.
-            Positioned(
+            if (widget.showControls)
+              Positioned(
               bottom: 0,
               left: 0,
               right: 0,

@@ -15,7 +15,11 @@ class APIList {
 
   // --- Media + submit ---
   static const String uploadMedia = '/inspection/upload-image';
-  static const String submitInspection = '/dynamic-inspections';
+  // Per-section incremental save while inspecting (dynamic save-step workflow).
+  static String saveStep(Object id) => '/dynamic-inspections/$id/save-step';
+  // Finalise an existing draft (processing_status = completed).
+  static String submitInspectionById(Object id) =>
+      '/dynamic-inspections/$id/submit';
   static String updateInspection(Object id) => '/inspections/$id';
 
   // --- Lists / stats ---

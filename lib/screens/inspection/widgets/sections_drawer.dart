@@ -193,7 +193,10 @@ class _InspectionSectionsDrawerState extends State<InspectionSectionsDrawer> {
   }
 
   Widget _fieldList(int sectionIndex, bool isCompleted, bool isActive) {
-    final fields = widget.sections[sectionIndex].fields;
+    // Sort by `order` exactly like the screen's _fields(), so the index emitted
+    // by onSelectField lines up with the field the screen renders at _itemIndex.
+    final fields = [...widget.sections[sectionIndex].fields]
+      ..sort((a, b) => a.order.compareTo(b.order));
     final Color borderColor = isCompleted
         ? Colors.green.withAlpha(102)
         : isActive

@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_ce/hive.dart';
 
 import '../models/local_inspection.dart';
+import 'media_storage_service.dart';
 
 /// Unified offline store. One Hive `Box<String>` holds:
 ///  - the single in-progress DRAFT (under [draftKey], status draft), and
@@ -13,9 +15,10 @@ import '../models/local_inspection.dart';
 /// records are saved AND queried with the same status (`pending`), so
 /// [getPending] always finds them (old app saved 'pending' but queried 'offline').
 class LocalInspectionService {
-  LocalInspectionService(this._box);
+  LocalInspectionService(this._box, [this._media = const MediaStorageService()]);
 
   final Box<String> _box;
+  final MediaStorageService _media;
 
   static const String boxName = 'inspections';
   static const String draftKey = '__current_draft__';
@@ -29,7 +32,15 @@ class LocalInspectionService {
 
   LocalInspection? getDraft() => _read(draftKey);
 
-  Future<void> clearDraft() => _box.delete(draftKey);
+  Future<void> clearDraft() async {
+    final d = getDraft();
+    await _box.delete(draftKey);
+    // Keep the JSON mirror when a queued (pending) entry shares this id: an
+    // offline submit upserts the pending item then immediately clears the draft,
+    // and both key their mirror by inspection id. Deleting here would erase the
+    // queue item's mirror. The mirror is removed later by delete()/markSubmitted.
+    if (d != null && getById(d.id) == null) unawaited(_media.deleteJson(d.id));
+  }
 
   bool hasFreshDraft({Duration maxAge = const Duration(hours: 24)}) {
     final d = getDraft();
@@ -56,10 +67,14 @@ class LocalInspectionService {
   List<LocalInspection> getPendingWithMedia() =>
       getPending().where((i) => i.hasPendingMedia).toList();
 
-  Future<void> delete(String id) => _box.delete(id);
+  Future<void> delete(String id) async {
+    await _box.delete(id);
+    unawaited(_media.deleteJson(id));
+  }
 
-  /// Sync succeeded — remove from queue. (Media-file cleanup happens in P7.)
-  Future<void> markSubmitted(String id) => _box.delete(id);
+  /// Sync succeeded — remove from queue + its JSON mirror.
+  /// (Media-file cleanup happens in P7.)
+  Future<void> markSubmitted(String id) => delete(id);
 
   // --- internals ---
 
@@ -68,8 +83,11 @@ class LocalInspectionService {
       .map((k) => _read(k as String))
       .whereType<LocalInspection>();
 
-  Future<void> _put(String key, LocalInspection insp) =>
-      _box.put(key, jsonEncode(insp.toJson()));
+  Future<void> _put(String key, LocalInspection insp) async {
+    final json = jsonEncode(insp.toJson());
+    await _box.put(key, json);
+    unawaited(_media.writeJson(insp.id, json)); // visible mirror, best-effort
+  }
 
   LocalInspection? _read(String key) {
     final raw = _box.get(key);
@@ -84,5 +102,8 @@ class LocalInspectionService {
 }
 
 final localInspectionServiceProvider = Provider<LocalInspectionService>(
-  (ref) => LocalInspectionService(Hive.box<String>(LocalInspectionService.boxName)),
+  (ref) => LocalInspectionService(
+    Hive.box<String>(LocalInspectionService.boxName),
+    ref.read(mediaStorageServiceProvider),
+  ),
 );

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../../themes/inspection_colors.dart';
+import 'cached_reference_image.dart';
 
 /// Capture mode for the dark camera HUD. Tab order in the strip is
 /// FILE, PHOTO, VIDEO, AUDIO (per cameraUi.md).
@@ -118,7 +119,7 @@ class ReferenceThumbnail extends StatelessWidget {
                         color: Colors.white70, size: 32.sp),
                   )
                 else
-                  Image.network(
+                  CachedReferenceImage(
                     url,
                     fit: BoxFit.cover,
                     cacheWidth: 200,

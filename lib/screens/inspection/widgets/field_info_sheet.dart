@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../../models/inspection_template_model.dart';
+import 'cached_reference_image.dart';
 
 /// "What to inspect" help sheet: field title, description (from metadata), and
 /// reference media (from the API — no hardcoded explanations).
@@ -79,7 +80,7 @@ class _RefMedia extends StatelessWidget {
           borderRadius: BorderRadius.circular(8.r),
           child: url == null
               ? const SizedBox.shrink()
-              : Image.network(url,
+              : CachedReferenceImage(url,
                   height: 110.w,
                   width: 140.w,
                   fit: BoxFit.cover,

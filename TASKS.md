@@ -70,6 +70,7 @@ Legend: ⬜ todo · 🟦 in progress · ✅ done
 - [x] **P6b** `inspection_screen.dart` (dynamic one-field-at-a-time render: text/date/dropdown + remarks, prev/next/section nav, progress, autosave via session) + `buildSubmissionBody` (pure, tested) + `InspectionSubmitController` (online submit / offline queue) + `inspection_success_screen.dart` + success route
 - [x] **P6c** media capture (decision: **exact custom viewfinder**): ported `section_camera_card` + `section_video_camera_card`; `MediaStorageService` (compress/save); `MediaCaptureController` (upload-or-queue); `MediaFieldControl` (image/multi≤11/video/audio record+browse/file). Wired into form.
 - [x] **P6d** RC verify (`regno` → ULIP, inline Verify + RC dialog), `FieldInfoSheet` (reference media from API + metadata), flag-issues chips (from field options), section-resume; inspection screen widget test (Hive harness). *Lifecycle flush n/a — session persists eagerly on each change.*
+- [x] **P6e — dynamic save-step workflow** (port of old `9f1744f`, per `docs/dynamic_workflow.md`): `saveStep` + `submitInspectionById` endpoints + repo methods; `buildSectionItems` (pure, tested) → `/save-step` item shape; `_flushLeavingSection` save-steps the section being left on next/prev/jump (online, fire-and-forget, idempotent); online submit + offline drain now **finalise by id** (`/{id}/submit`) — never duplicate. **Legacy all-at-once `POST /dynamic-inspections` removed** (start is online-gated so a draft id always exists; null id surfaces an error instead of falling back). *Server-resume `GET /{id}/resume` + offline-first start still deferred (local-Hive resume covers restart today).*
 
 ## P7 — Reports / History / Offline  ✅
 - [x] `OfflineInspectionController` — queue list + per-item retry (upload pending media → rewrite body URLs → submit → mark submitted) + connectivity-triggered `syncAll`
@@ -78,6 +79,7 @@ Legend: ⬜ todo · 🟦 in progress · ✅ done
 - [x] `local_inspections_screen.dart` (pending queue, per-item retry/delete, sync-now)
 - [x] routes (history, offline) + Home app-bar entry points
 - [x] error + loading states wired (list controller AsyncError/loading covered by P4 tests)
+- [x] **offline reference media** (port of old `f3d2b2d` + `prefetch` revalidate fix): `ReferenceMediaCache` (Dio + AppLogger, atomic temp-rename, ETag/Last-Modified revalidation, bounded pool) + `mediaUri` helper; `prefetch(revalidate:)` — initialize warms (true), `resumeDraft` warms (false) so resume doesn't re-download the guide set; `CachedReferenceImage` (disk-first, network fallback) wired into field-info sheet, camera HUD, fullscreen. *Progress bar UI deferred — `ReferenceMediaCache.progress` notifier is live for a future bar.*
 
 ## P8 — Polish + cursor rules  ✅
 - [x] dark theme final (single `darkTheme`, widgets use colorScheme)

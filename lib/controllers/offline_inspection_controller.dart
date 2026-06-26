@@ -8,6 +8,7 @@ import '../models/local_inspection.dart';
 import '../services/api/api_result.dart';
 import '../services/connectivity_service.dart';
 import '../services/local_inspection_service.dart';
+import '../utils/logger.dart';
 
 typedef OfflineState = ({
   List<LocalInspection> items,
@@ -56,38 +57,64 @@ class OfflineInspectionController extends Notifier<OfflineState> {
 
   Future<void> retry(LocalInspection inspection) async {
     _setSubmitting(inspection.id, true);
-    final repo = ref.read(inspectionRepositoryProvider);
+    try {
+      final repo = ref.read(inspectionRepositoryProvider);
+      var current = inspection;
+      final body = Map<String, dynamic>.from(current.submissionData ?? const {});
+      final stillPending = <PendingMedia>[];
 
-    var current = inspection;
-    var body = Map<String, dynamic>.from(current.submissionData ?? const {});
-    final stillPending = <PendingMedia>[];
-
-    for (final media in current.pendingMedia) {
-      final res = await repo.uploadMedia(
-        filePath: media.localPath,
-        inspectionId: current.inspectionId,
-        section: media.section,
-        itemId: media.itemId,
-        fieldName: media.kind == 'image' ? 'image' : media.kind,
-      );
-      if (res is ApiSuccess<String>) {
-        _patchBody(body, media, res.data);
-      } else {
-        stillPending.add(media); // retry next time
+      for (final media in current.pendingMedia) {
+        // Guard each upload: uploadMedia returns an ApiResult and shouldn't
+        // throw (it checks the file exists), but a thrown error must NOT escape
+        // and wedge the whole sync run with a stuck submitting flag.
+        ApiResult<String> res;
+        try {
+          res = await repo.uploadMedia(
+            filePath: media.localPath,
+            inspectionId: current.inspectionId,
+            section: media.section,
+            itemId: media.itemId,
+          );
+        } catch (e, st) {
+          AppLogger.error('media upload threw for ${media.itemId}',
+              error: e, stackTrace: st);
+          res = const ApiNetworkError();
+        }
+        if (res is ApiSuccess<String>) {
+          _patchBody(body, media, res.data);
+        } else {
+          stillPending.add(media); // retry next time
+        }
       }
-    }
 
-    current =
-        current.copyWith(pendingMedia: stillPending, submissionData: body);
-    await _svc.upsertPending(current); // persist progress
+      current =
+          current.copyWith(pendingMedia: stillPending, submissionData: body);
+      await _svc.upsertPending(current); // persist progress
 
-    final submitRes = await repo.submitInspection(body);
-    if (!ref.mounted) return;
-    if (submitRes is ApiSuccess) {
-      await _svc.markSubmitted(inspection.id);
+      // Do NOT finalise until every media uploaded — otherwise the server is
+      // submitted with local paths and markSubmitted deletes the un-uploaded
+      // media forever. Keep it queued; the next sync retries the remainder.
+      if (stillPending.isNotEmpty) {
+        reload();
+        return;
+      }
+
+      // Finalise the existing draft by id (minted at initialize before going
+      // offline) so reconnecting never creates a duplicate.
+      final id = current.inspectionId;
+      if (id == null) {
+        reload();
+        return;
+      }
+      final submitRes = await repo.submitInspectionById(id, body);
+      if (!ref.mounted) return;
+      if (submitRes is ApiSuccess) {
+        await _svc.markSubmitted(inspection.id);
+      }
+      reload();
+    } finally {
+      if (ref.mounted) _clearSubmitting(inspection.id);
     }
-    _clearSubmitting(inspection.id);
-    reload();
   }
 
   Future<void> delete(String id) async {
@@ -123,7 +150,13 @@ class OfflineInspectionController extends Notifier<OfflineState> {
   void _patchItems(dynamic items, PendingMedia m, String url) {
     if (items is! List) return;
     for (final item in items) {
-      if (item is! Map || item['fieldId'] != m.itemId) continue;
+      if (item is! Map) continue;
+      // PendingMedia.itemId is the field key (fieldId ?? id ?? title); match it
+      // with the SAME fallback so a field with a null field_id still resolves —
+      // otherwise its uploaded URL never replaces the local path.
+      final itemKey =
+          (item['fieldId'] ?? item['id'] ?? item['title'])?.toString();
+      if (itemKey != m.itemId) continue;
       switch (m.kind) {
         case 'video':
           item['videoPath'] = url;

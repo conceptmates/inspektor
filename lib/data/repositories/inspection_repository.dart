@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -87,16 +89,21 @@ class InspectionRepository {
   }
 
   /// POST /inspection/upload-image (multipart) — returns the stored media URL.
-  /// Used for image, video, audio and file (via [fieldName]).
+  /// Used for image, video, audio and file alike.
   Future<ApiResult<String>> uploadMedia({
     required String filePath,
     int? inspectionId,
     required String section,
     required String itemId,
-    String fieldName = 'image',
   }) async {
+    // The endpoint validates a `required` multipart field named `image` for ALL
+    // media types (its mimes rule allows mp4/m4a/pdf/...). Sending under any
+    // other field name fails with 422, so video/audio/file must use `image` too.
+    if (!File(filePath).existsSync()) {
+      return const ApiBadRequest(message: 'Media file no longer exists');
+    }
     final formData = FormData.fromMap({
-      fieldName: await MultipartFile.fromFile(filePath),
+      'image': await MultipartFile.fromFile(filePath),
       'section': section,
       'itemId': itemId,
       'inspection_id': ?inspectionId,
@@ -122,11 +129,36 @@ class InspectionRepository {
     return ApiSuccess(url);
   }
 
-  /// POST /dynamic-inspections — final submit.
-  Future<ApiResult<SubmitResult>> submitInspection(
-      Map<String, dynamic> body) async {
+  /// POST /dynamic-inspections/{id}/save-step — persist one section while the
+  /// inspector fills it in. Idempotent: re-sending a section overwrites it.
+  /// Returns the server's `saved_sections` list (progress tracking).
+  Future<ApiResult<List<String>>> saveStep({
+    required Object id,
+    required String section,
+    required List<Map<String, dynamic>> items,
+  }) async {
     final res = await _api.post<Map<String, dynamic>>(
-      APIList.submitInspection,
+      APIList.saveStep(id),
+      body: {'section': section, 'items': items},
+      fromJson: _asMap,
+    );
+    if (res is! ApiSuccess<Map<String, dynamic>>) return castApiError(res);
+    final data = (res.data['data'] as Map?)?.cast<String, dynamic>() ?? res.data;
+    final saved = (data['saved_sections'] as List?)
+            ?.map((e) => e.toString())
+            .toList() ??
+        const <String>[];
+    return ApiSuccess(saved);
+  }
+
+  /// POST /dynamic-inspections/{id}/submit — finalise an existing draft
+  /// (processing_status = completed). Send `{}` when every section was already
+  /// save-stepped, or the full body to persist anything outstanding in the same
+  /// call. Idempotent on an already-completed (un-approved) inspection.
+  Future<ApiResult<SubmitResult>> submitInspectionById(
+      Object id, Map<String, dynamic> body) async {
+    final res = await _api.post<Map<String, dynamic>>(
+      APIList.submitInspectionById(id),
       body: body,
       fromJson: _asMap,
     );

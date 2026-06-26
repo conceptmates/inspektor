@@ -5,6 +5,7 @@ import '../models/local_inspection.dart';
 import '../services/api/api_result.dart';
 import '../services/connectivity_service.dart';
 import '../services/media_storage_service.dart';
+import '../utils/logger.dart';
 import 'inspection_session_controller.dart';
 
 /// Handles capture → local save → upload (or queue offline) → write to the
@@ -97,7 +98,6 @@ class MediaCaptureController extends Notifier<Map<String, bool>> {
             inspectionId: draft?.inspectionId,
             section: section,
             itemId: itemId,
-            fieldName: kind == 'image' ? 'image' : kind,
           );
       if (res is ApiSuccess<String>) return res.data;
     }
@@ -113,6 +113,12 @@ class MediaCaptureController extends Notifier<Map<String, bool>> {
     state = {...state, key: true};
     try {
       await action();
+    } catch (e, st) {
+      // The callers discard this future, so without a catch a local-save/IO
+      // failure would surface as an unhandled async error. Log it (don't let it
+      // vanish). ponytail: no user-facing SnackBar yet — busy clears and the
+      // live camera returns; add an error entry to state if UX needs it.
+      AppLogger.error('media capture failed for $key', error: e, stackTrace: st);
     } finally {
       if (ref.mounted) {
         final next = {...state}..remove(key);

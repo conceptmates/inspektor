@@ -68,20 +68,30 @@ class AuthInterceptor extends QueuedInterceptorsWrapper {
 
     if (is401 && useAuth && !skipRefresh && !_isRefreshing) {
       _isRefreshing = true;
+      String? newToken;
       try {
-        final newToken = await _refreshToken();
-        _isRefreshing = false;
-        if (newToken == null) {
-          await _userService.clearAll();
-          return handler.next(err);
-        }
-        final req = err.requestOptions
-          ..headers['Authorization'] = 'Bearer $newToken';
-        return handler.resolve(await dio.fetch<dynamic>(req));
+        newToken = await _refreshToken();
       } catch (_) {
+        // Refresh itself failed → the session is genuinely dead. Clear creds.
         _isRefreshing = false;
         await _userService.clearAll();
         return handler.next(err);
+      }
+      _isRefreshing = false;
+      if (newToken == null) {
+        await _userService.clearAll();
+        return handler.next(err);
+      }
+      // Retry with the fresh token. A failure HERE is not an auth failure —
+      // a transient 500/timeout must NOT wipe a valid new token. Only a fresh
+      // 401 (the new token is rejected too) clears credentials.
+      final req = err.requestOptions
+        ..headers['Authorization'] = 'Bearer $newToken';
+      try {
+        return handler.resolve(await dio.fetch<dynamic>(req));
+      } on DioException catch (e) {
+        if (e.response?.statusCode == 401) await _userService.clearAll();
+        return handler.next(e);
       }
     }
     handler.next(err);
