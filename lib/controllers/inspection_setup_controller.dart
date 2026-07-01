@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/repositories/inspection_repository.dart';
 import '../models/inspection_template_model.dart';
 import '../services/api/api_result.dart';
+import '../services/local_inspection_service.dart';
 import '../services/reference_media_cache.dart';
 import 'inspection_session_controller.dart';
 
@@ -57,6 +58,12 @@ class InspectionSetupController extends Notifier<SetupState> {
 
     switch (res) {
       case ApiSuccess(:final data):
+        final templateJson = data.template.toJson();
+        // Cache the template for this model so the same inspection type can be
+        // started offline next time (offline-first start; id minted on sync).
+        unawaited(ref
+            .read(localInspectionServiceProvider)
+            .cacheTemplate(modelId, templateJson));
         // Warm the offline reference-image cache now, while definitely online,
         // so guides stay visible if the inspector drops offline mid-inspection.
         // Fire-and-forget — never blocks the flow.
@@ -64,13 +71,31 @@ class InspectionSetupController extends Notifier<SetupState> {
             ReferenceMediaCache.prefetch(data.template.referenceImageUrls));
         ref.read(inspectionSessionControllerProvider.notifier).startNew(
               vehicleDetails: vehicleDetails,
-              template: data.template.toJson(),
+              template: templateJson,
               inspectionId: data.inspectionId,
             );
         state = (isLoading: false, error: null);
         return true;
       case ApiNetworkError():
-        state = (isLoading: false, error: 'No connection. Check your network.');
+        // Offline-first start: if we've cached this model's template before,
+        // start a draft with no server id. The offline queue mints the id and
+        // submits on reconnect (see OfflineInspectionController.retry).
+        final cached = ref
+            .read(localInspectionServiceProvider)
+            .getCachedTemplate(modelId);
+        if (cached != null) {
+          ref.read(inspectionSessionControllerProvider.notifier).startNew(
+                vehicleDetails: vehicleDetails,
+                template: cached,
+                inspectionId: null,
+              );
+          state = (isLoading: false, error: null);
+          return true;
+        }
+        state = (
+          isLoading: false,
+          error: 'No connection. Connect once to start this inspection type.'
+        );
         return false;
       case ApiUnauthorized():
       case ApiServerError():

@@ -80,6 +80,14 @@ class ReportsController extends PaginatedInspectionsController {
       ref.read(inspectionRepositoryProvider).getMyHistory(page);
 }
 
+/// GET /dynamic-inspections/my-history?status=draft — resumable server drafts
+/// (the Pending tab). Drafts are served only by this filter.
+class DraftsController extends PaginatedInspectionsController {
+  @override
+  Future<ApiResult<HistoryPage>> fetchPage(int page) =>
+      ref.read(inspectionRepositoryProvider).getMyHistory(page, status: 'draft');
+}
+
 final historyControllerProvider =
     AsyncNotifierProvider<HistoryController, PaginatedInspections>(
         HistoryController.new);
@@ -87,3 +95,7 @@ final historyControllerProvider =
 final reportsControllerProvider =
     AsyncNotifierProvider<ReportsController, PaginatedInspections>(
         ReportsController.new);
+
+final draftsControllerProvider =
+    AsyncNotifierProvider<DraftsController, PaginatedInspections>(
+        DraftsController.new);

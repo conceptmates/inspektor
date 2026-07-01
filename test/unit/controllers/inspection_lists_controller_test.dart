@@ -43,6 +43,34 @@ void main() {
     expect(after.pagination.hasMore, false); // reached last page
   });
 
+  test('drafts controller requests my-history with status=draft', () async {
+    String? sentStatus;
+    String? sentPath;
+    final repo = InspectionRepository(apiWrapperWith((o) {
+      sentStatus = '${o.queryParameters['status']}';
+      sentPath = o.path;
+      return (
+        status: 200,
+        body: {
+          'data': {
+            'inspections': [
+              {'id': 7, 'status': 'draft', 'created_at': '2026-06-20T00:00:00Z'},
+            ],
+            'pagination': {'current_page': 1, 'last_page': 1},
+          },
+        },
+      );
+    }));
+    final container = ProviderContainer.test(
+      overrides: [inspectionRepositoryProvider.overrideWithValue(repo)],
+    );
+
+    final page = await container.read(draftsControllerProvider.future);
+    expect(sentStatus, 'draft');
+    expect(sentPath, contains('my-history'));
+    expect(page.items.single.status, 'draft');
+  });
+
   test('first-load error surfaces as AsyncError', () async {
     final repo = InspectionRepository(
         apiWrapperWith((_) => (status: 500, body: {'message': 'boom'})));

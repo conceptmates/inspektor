@@ -64,4 +64,40 @@ void main() {
     final r = await repo.getStats();
     expect(r, isA<ApiServerError<InspectionStats>>());
   });
+
+  test('resumeInspection parses template + saved_sections + id', () async {
+    final repo = InspectionRepository(apiWrapperWith((_) => (
+          status: 200,
+          body: {
+            'data': {
+              'inspection_id': 123,
+              'structure': {
+                'sections': [
+                  {
+                    'name': 'b',
+                    'fields': [
+                      {'field_id': 'a', 'title': 'A', 'initial_value': 'X'},
+                    ],
+                  },
+                ],
+              },
+              'saved_sections': [
+                {
+                  'name': 'b',
+                  'items': [
+                    {'fieldId': 'a', 'value': 'X', 'imagePath': 'https://cdn/a.jpg'},
+                  ],
+                },
+              ],
+            },
+          },
+        )));
+    final r = await repo.resumeInspection(123);
+    expect(r, isA<ApiSuccess<InspectionInit>>());
+    final init = (r as ApiSuccess<InspectionInit>).data;
+    expect(init.inspectionId, 123);
+    expect(init.template.savedFields['a']!['image'], 'https://cdn/a.jpg');
+    expect(init.template.structure.sections.single.fields.single.initialValue,
+        'X');
+  });
 }

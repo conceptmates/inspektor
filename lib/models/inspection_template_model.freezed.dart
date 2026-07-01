@@ -15,7 +15,11 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$InspectionInitializationResponse {
 
-@JsonKey(readValue: _readTemplateType) InspectionTemplate? get templateType;@JsonKey(readValue: _readVehicleInfo) VehicleInfo? get vehicleInfo; InspectionStructure get structure;
+@JsonKey(readValue: _readTemplateType) InspectionTemplate? get templateType;@JsonKey(readValue: _readVehicleInfo) VehicleInfo? get vehicleInfo; InspectionStructure get structure;// Resume payload: previously-saved answers + already-uploaded media URLs,
+// flattened to `fieldKey -> {value, remarks, image, multiImages, video,
+// audio, file}`. Read from BOTH `saved_sections` and a top-level `fields[]`
+// (the server carries resumed data in either shape across versions).
+@JsonKey(readValue: _readSaved, fromJson: _parseSavedFields) Map<String, Map<String, dynamic>> get savedFields;
 /// Create a copy of InspectionInitializationResponse
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -28,16 +32,16 @@ $InspectionInitializationResponseCopyWith<InspectionInitializationResponse> get 
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is InspectionInitializationResponse&&(identical(other.templateType, templateType) || other.templateType == templateType)&&(identical(other.vehicleInfo, vehicleInfo) || other.vehicleInfo == vehicleInfo)&&(identical(other.structure, structure) || other.structure == structure));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is InspectionInitializationResponse&&(identical(other.templateType, templateType) || other.templateType == templateType)&&(identical(other.vehicleInfo, vehicleInfo) || other.vehicleInfo == vehicleInfo)&&(identical(other.structure, structure) || other.structure == structure)&&const DeepCollectionEquality().equals(other.savedFields, savedFields));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,templateType,vehicleInfo,structure);
+int get hashCode => Object.hash(runtimeType,templateType,vehicleInfo,structure,const DeepCollectionEquality().hash(savedFields));
 
 @override
 String toString() {
-  return 'InspectionInitializationResponse(templateType: $templateType, vehicleInfo: $vehicleInfo, structure: $structure)';
+  return 'InspectionInitializationResponse(templateType: $templateType, vehicleInfo: $vehicleInfo, structure: $structure, savedFields: $savedFields)';
 }
 
 
@@ -48,7 +52,7 @@ abstract mixin class $InspectionInitializationResponseCopyWith<$Res>  {
   factory $InspectionInitializationResponseCopyWith(InspectionInitializationResponse value, $Res Function(InspectionInitializationResponse) _then) = _$InspectionInitializationResponseCopyWithImpl;
 @useResult
 $Res call({
-@JsonKey(readValue: _readTemplateType) InspectionTemplate? templateType,@JsonKey(readValue: _readVehicleInfo) VehicleInfo? vehicleInfo, InspectionStructure structure
+@JsonKey(readValue: _readTemplateType) InspectionTemplate? templateType,@JsonKey(readValue: _readVehicleInfo) VehicleInfo? vehicleInfo, InspectionStructure structure,@JsonKey(readValue: _readSaved, fromJson: _parseSavedFields) Map<String, Map<String, dynamic>> savedFields
 });
 
 
@@ -65,12 +69,13 @@ class _$InspectionInitializationResponseCopyWithImpl<$Res>
 
 /// Create a copy of InspectionInitializationResponse
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? templateType = freezed,Object? vehicleInfo = freezed,Object? structure = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? templateType = freezed,Object? vehicleInfo = freezed,Object? structure = null,Object? savedFields = null,}) {
   return _then(_self.copyWith(
 templateType: freezed == templateType ? _self.templateType : templateType // ignore: cast_nullable_to_non_nullable
 as InspectionTemplate?,vehicleInfo: freezed == vehicleInfo ? _self.vehicleInfo : vehicleInfo // ignore: cast_nullable_to_non_nullable
 as VehicleInfo?,structure: null == structure ? _self.structure : structure // ignore: cast_nullable_to_non_nullable
-as InspectionStructure,
+as InspectionStructure,savedFields: null == savedFields ? _self.savedFields : savedFields // ignore: cast_nullable_to_non_nullable
+as Map<String, Map<String, dynamic>>,
   ));
 }
 /// Create a copy of InspectionInitializationResponse
@@ -188,10 +193,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function(@JsonKey(readValue: _readTemplateType)  InspectionTemplate? templateType, @JsonKey(readValue: _readVehicleInfo)  VehicleInfo? vehicleInfo,  InspectionStructure structure)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function(@JsonKey(readValue: _readTemplateType)  InspectionTemplate? templateType, @JsonKey(readValue: _readVehicleInfo)  VehicleInfo? vehicleInfo,  InspectionStructure structure, @JsonKey(readValue: _readSaved, fromJson: _parseSavedFields)  Map<String, Map<String, dynamic>> savedFields)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _InspectionInitializationResponse() when $default != null:
-return $default(_that.templateType,_that.vehicleInfo,_that.structure);case _:
+return $default(_that.templateType,_that.vehicleInfo,_that.structure,_that.savedFields);case _:
   return orElse();
 
 }
@@ -209,10 +214,10 @@ return $default(_that.templateType,_that.vehicleInfo,_that.structure);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function(@JsonKey(readValue: _readTemplateType)  InspectionTemplate? templateType, @JsonKey(readValue: _readVehicleInfo)  VehicleInfo? vehicleInfo,  InspectionStructure structure)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function(@JsonKey(readValue: _readTemplateType)  InspectionTemplate? templateType, @JsonKey(readValue: _readVehicleInfo)  VehicleInfo? vehicleInfo,  InspectionStructure structure, @JsonKey(readValue: _readSaved, fromJson: _parseSavedFields)  Map<String, Map<String, dynamic>> savedFields)  $default,) {final _that = this;
 switch (_that) {
 case _InspectionInitializationResponse():
-return $default(_that.templateType,_that.vehicleInfo,_that.structure);case _:
+return $default(_that.templateType,_that.vehicleInfo,_that.structure,_that.savedFields);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -229,10 +234,10 @@ return $default(_that.templateType,_that.vehicleInfo,_that.structure);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function(@JsonKey(readValue: _readTemplateType)  InspectionTemplate? templateType, @JsonKey(readValue: _readVehicleInfo)  VehicleInfo? vehicleInfo,  InspectionStructure structure)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function(@JsonKey(readValue: _readTemplateType)  InspectionTemplate? templateType, @JsonKey(readValue: _readVehicleInfo)  VehicleInfo? vehicleInfo,  InspectionStructure structure, @JsonKey(readValue: _readSaved, fromJson: _parseSavedFields)  Map<String, Map<String, dynamic>> savedFields)?  $default,) {final _that = this;
 switch (_that) {
 case _InspectionInitializationResponse() when $default != null:
-return $default(_that.templateType,_that.vehicleInfo,_that.structure);case _:
+return $default(_that.templateType,_that.vehicleInfo,_that.structure,_that.savedFields);case _:
   return null;
 
 }
@@ -244,12 +249,27 @@ return $default(_that.templateType,_that.vehicleInfo,_that.structure);case _:
 @JsonSerializable()
 
 class _InspectionInitializationResponse implements InspectionInitializationResponse {
-  const _InspectionInitializationResponse({@JsonKey(readValue: _readTemplateType) this.templateType, @JsonKey(readValue: _readVehicleInfo) this.vehicleInfo, this.structure = const InspectionStructure()});
+  const _InspectionInitializationResponse({@JsonKey(readValue: _readTemplateType) this.templateType, @JsonKey(readValue: _readVehicleInfo) this.vehicleInfo, this.structure = const InspectionStructure(), @JsonKey(readValue: _readSaved, fromJson: _parseSavedFields) final  Map<String, Map<String, dynamic>> savedFields = const <String, Map<String, dynamic>>{}}): _savedFields = savedFields;
   factory _InspectionInitializationResponse.fromJson(Map<String, dynamic> json) => _$InspectionInitializationResponseFromJson(json);
 
 @override@JsonKey(readValue: _readTemplateType) final  InspectionTemplate? templateType;
 @override@JsonKey(readValue: _readVehicleInfo) final  VehicleInfo? vehicleInfo;
 @override@JsonKey() final  InspectionStructure structure;
+// Resume payload: previously-saved answers + already-uploaded media URLs,
+// flattened to `fieldKey -> {value, remarks, image, multiImages, video,
+// audio, file}`. Read from BOTH `saved_sections` and a top-level `fields[]`
+// (the server carries resumed data in either shape across versions).
+ final  Map<String, Map<String, dynamic>> _savedFields;
+// Resume payload: previously-saved answers + already-uploaded media URLs,
+// flattened to `fieldKey -> {value, remarks, image, multiImages, video,
+// audio, file}`. Read from BOTH `saved_sections` and a top-level `fields[]`
+// (the server carries resumed data in either shape across versions).
+@override@JsonKey(readValue: _readSaved, fromJson: _parseSavedFields) Map<String, Map<String, dynamic>> get savedFields {
+  if (_savedFields is EqualUnmodifiableMapView) return _savedFields;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableMapView(_savedFields);
+}
+
 
 /// Create a copy of InspectionInitializationResponse
 /// with the given fields replaced by the non-null parameter values.
@@ -264,16 +284,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _InspectionInitializationResponse&&(identical(other.templateType, templateType) || other.templateType == templateType)&&(identical(other.vehicleInfo, vehicleInfo) || other.vehicleInfo == vehicleInfo)&&(identical(other.structure, structure) || other.structure == structure));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _InspectionInitializationResponse&&(identical(other.templateType, templateType) || other.templateType == templateType)&&(identical(other.vehicleInfo, vehicleInfo) || other.vehicleInfo == vehicleInfo)&&(identical(other.structure, structure) || other.structure == structure)&&const DeepCollectionEquality().equals(other._savedFields, _savedFields));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,templateType,vehicleInfo,structure);
+int get hashCode => Object.hash(runtimeType,templateType,vehicleInfo,structure,const DeepCollectionEquality().hash(_savedFields));
 
 @override
 String toString() {
-  return 'InspectionInitializationResponse(templateType: $templateType, vehicleInfo: $vehicleInfo, structure: $structure)';
+  return 'InspectionInitializationResponse(templateType: $templateType, vehicleInfo: $vehicleInfo, structure: $structure, savedFields: $savedFields)';
 }
 
 
@@ -284,7 +304,7 @@ abstract mixin class _$InspectionInitializationResponseCopyWith<$Res> implements
   factory _$InspectionInitializationResponseCopyWith(_InspectionInitializationResponse value, $Res Function(_InspectionInitializationResponse) _then) = __$InspectionInitializationResponseCopyWithImpl;
 @override @useResult
 $Res call({
-@JsonKey(readValue: _readTemplateType) InspectionTemplate? templateType,@JsonKey(readValue: _readVehicleInfo) VehicleInfo? vehicleInfo, InspectionStructure structure
+@JsonKey(readValue: _readTemplateType) InspectionTemplate? templateType,@JsonKey(readValue: _readVehicleInfo) VehicleInfo? vehicleInfo, InspectionStructure structure,@JsonKey(readValue: _readSaved, fromJson: _parseSavedFields) Map<String, Map<String, dynamic>> savedFields
 });
 
 
@@ -301,12 +321,13 @@ class __$InspectionInitializationResponseCopyWithImpl<$Res>
 
 /// Create a copy of InspectionInitializationResponse
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? templateType = freezed,Object? vehicleInfo = freezed,Object? structure = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? templateType = freezed,Object? vehicleInfo = freezed,Object? structure = null,Object? savedFields = null,}) {
   return _then(_InspectionInitializationResponse(
 templateType: freezed == templateType ? _self.templateType : templateType // ignore: cast_nullable_to_non_nullable
 as InspectionTemplate?,vehicleInfo: freezed == vehicleInfo ? _self.vehicleInfo : vehicleInfo // ignore: cast_nullable_to_non_nullable
 as VehicleInfo?,structure: null == structure ? _self.structure : structure // ignore: cast_nullable_to_non_nullable
-as InspectionStructure,
+as InspectionStructure,savedFields: null == savedFields ? _self._savedFields : savedFields // ignore: cast_nullable_to_non_nullable
+as Map<String, Map<String, dynamic>>,
   ));
 }
 
@@ -1465,7 +1486,9 @@ as List<InspectionField>,
 /// @nodoc
 mixin _$InspectionField {
 
- int? get id;@JsonKey(name: 'field_id') String? get fieldId; String? get title;@JsonKey(name: 'field_type') String get fieldType;@JsonKey(name: 'is_required') bool get isRequired;@JsonKey(name: 'has_remarks') bool get hasRemarks;@JsonKey(name: 'has_image') bool get hasImage;@JsonKey(name: 'has_video') bool get hasVideo;@JsonKey(name: 'has_file') bool get hasFile;@JsonKey(name: 'has_multiple_images') bool get hasMultipleImages; int get order; Map<String, dynamic>? get metadata; List<DropdownOption> get options;@JsonKey(name: 'reference_media') List<ReferenceMedia> get referenceMedia;
+ int? get id;@JsonKey(name: 'field_id') String? get fieldId; String? get title;@JsonKey(name: 'field_type') String get fieldType;@JsonKey(name: 'is_required') bool get isRequired;@JsonKey(name: 'has_remarks') bool get hasRemarks;@JsonKey(name: 'has_image') bool get hasImage;@JsonKey(name: 'has_video') bool get hasVideo;@JsonKey(name: 'has_file') bool get hasFile;@JsonKey(name: 'has_multiple_images') bool get hasMultipleImages; int get order; Map<String, dynamic>? get metadata; List<DropdownOption> get options;@JsonKey(name: 'reference_media') List<ReferenceMedia> get referenceMedia;// Resume pre-fill (server's saved answer for this field). Empty on a fresh
+// initialize; populated by GET /{id}/resume so the merge can re-hydrate.
+@JsonKey(name: 'initial_value', fromJson: _asStr) String? get initialValue;@JsonKey(name: 'initial_remarks', fromJson: _asStr) String? get initialRemarks;@JsonKey(name: 'initial_image', fromJson: _mediaStr) String? get initialImage;@JsonKey(name: 'initial_video', fromJson: _mediaStr) String? get initialVideo;@JsonKey(name: 'initial_audio', fromJson: _mediaStr) String? get initialAudio;@JsonKey(name: 'initial_file', fromJson: _mediaStr) String? get initialFile;@JsonKey(name: 'initial_multi_images', fromJson: _mediaStrList) List<String> get initialMultiImages;
 /// Create a copy of InspectionField
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -1478,16 +1501,16 @@ $InspectionFieldCopyWith<InspectionField> get copyWith => _$InspectionFieldCopyW
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is InspectionField&&(identical(other.id, id) || other.id == id)&&(identical(other.fieldId, fieldId) || other.fieldId == fieldId)&&(identical(other.title, title) || other.title == title)&&(identical(other.fieldType, fieldType) || other.fieldType == fieldType)&&(identical(other.isRequired, isRequired) || other.isRequired == isRequired)&&(identical(other.hasRemarks, hasRemarks) || other.hasRemarks == hasRemarks)&&(identical(other.hasImage, hasImage) || other.hasImage == hasImage)&&(identical(other.hasVideo, hasVideo) || other.hasVideo == hasVideo)&&(identical(other.hasFile, hasFile) || other.hasFile == hasFile)&&(identical(other.hasMultipleImages, hasMultipleImages) || other.hasMultipleImages == hasMultipleImages)&&(identical(other.order, order) || other.order == order)&&const DeepCollectionEquality().equals(other.metadata, metadata)&&const DeepCollectionEquality().equals(other.options, options)&&const DeepCollectionEquality().equals(other.referenceMedia, referenceMedia));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is InspectionField&&(identical(other.id, id) || other.id == id)&&(identical(other.fieldId, fieldId) || other.fieldId == fieldId)&&(identical(other.title, title) || other.title == title)&&(identical(other.fieldType, fieldType) || other.fieldType == fieldType)&&(identical(other.isRequired, isRequired) || other.isRequired == isRequired)&&(identical(other.hasRemarks, hasRemarks) || other.hasRemarks == hasRemarks)&&(identical(other.hasImage, hasImage) || other.hasImage == hasImage)&&(identical(other.hasVideo, hasVideo) || other.hasVideo == hasVideo)&&(identical(other.hasFile, hasFile) || other.hasFile == hasFile)&&(identical(other.hasMultipleImages, hasMultipleImages) || other.hasMultipleImages == hasMultipleImages)&&(identical(other.order, order) || other.order == order)&&const DeepCollectionEquality().equals(other.metadata, metadata)&&const DeepCollectionEquality().equals(other.options, options)&&const DeepCollectionEquality().equals(other.referenceMedia, referenceMedia)&&(identical(other.initialValue, initialValue) || other.initialValue == initialValue)&&(identical(other.initialRemarks, initialRemarks) || other.initialRemarks == initialRemarks)&&(identical(other.initialImage, initialImage) || other.initialImage == initialImage)&&(identical(other.initialVideo, initialVideo) || other.initialVideo == initialVideo)&&(identical(other.initialAudio, initialAudio) || other.initialAudio == initialAudio)&&(identical(other.initialFile, initialFile) || other.initialFile == initialFile)&&const DeepCollectionEquality().equals(other.initialMultiImages, initialMultiImages));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,fieldId,title,fieldType,isRequired,hasRemarks,hasImage,hasVideo,hasFile,hasMultipleImages,order,const DeepCollectionEquality().hash(metadata),const DeepCollectionEquality().hash(options),const DeepCollectionEquality().hash(referenceMedia));
+int get hashCode => Object.hashAll([runtimeType,id,fieldId,title,fieldType,isRequired,hasRemarks,hasImage,hasVideo,hasFile,hasMultipleImages,order,const DeepCollectionEquality().hash(metadata),const DeepCollectionEquality().hash(options),const DeepCollectionEquality().hash(referenceMedia),initialValue,initialRemarks,initialImage,initialVideo,initialAudio,initialFile,const DeepCollectionEquality().hash(initialMultiImages)]);
 
 @override
 String toString() {
-  return 'InspectionField(id: $id, fieldId: $fieldId, title: $title, fieldType: $fieldType, isRequired: $isRequired, hasRemarks: $hasRemarks, hasImage: $hasImage, hasVideo: $hasVideo, hasFile: $hasFile, hasMultipleImages: $hasMultipleImages, order: $order, metadata: $metadata, options: $options, referenceMedia: $referenceMedia)';
+  return 'InspectionField(id: $id, fieldId: $fieldId, title: $title, fieldType: $fieldType, isRequired: $isRequired, hasRemarks: $hasRemarks, hasImage: $hasImage, hasVideo: $hasVideo, hasFile: $hasFile, hasMultipleImages: $hasMultipleImages, order: $order, metadata: $metadata, options: $options, referenceMedia: $referenceMedia, initialValue: $initialValue, initialRemarks: $initialRemarks, initialImage: $initialImage, initialVideo: $initialVideo, initialAudio: $initialAudio, initialFile: $initialFile, initialMultiImages: $initialMultiImages)';
 }
 
 
@@ -1498,7 +1521,7 @@ abstract mixin class $InspectionFieldCopyWith<$Res>  {
   factory $InspectionFieldCopyWith(InspectionField value, $Res Function(InspectionField) _then) = _$InspectionFieldCopyWithImpl;
 @useResult
 $Res call({
- int? id,@JsonKey(name: 'field_id') String? fieldId, String? title,@JsonKey(name: 'field_type') String fieldType,@JsonKey(name: 'is_required') bool isRequired,@JsonKey(name: 'has_remarks') bool hasRemarks,@JsonKey(name: 'has_image') bool hasImage,@JsonKey(name: 'has_video') bool hasVideo,@JsonKey(name: 'has_file') bool hasFile,@JsonKey(name: 'has_multiple_images') bool hasMultipleImages, int order, Map<String, dynamic>? metadata, List<DropdownOption> options,@JsonKey(name: 'reference_media') List<ReferenceMedia> referenceMedia
+ int? id,@JsonKey(name: 'field_id') String? fieldId, String? title,@JsonKey(name: 'field_type') String fieldType,@JsonKey(name: 'is_required') bool isRequired,@JsonKey(name: 'has_remarks') bool hasRemarks,@JsonKey(name: 'has_image') bool hasImage,@JsonKey(name: 'has_video') bool hasVideo,@JsonKey(name: 'has_file') bool hasFile,@JsonKey(name: 'has_multiple_images') bool hasMultipleImages, int order, Map<String, dynamic>? metadata, List<DropdownOption> options,@JsonKey(name: 'reference_media') List<ReferenceMedia> referenceMedia,@JsonKey(name: 'initial_value', fromJson: _asStr) String? initialValue,@JsonKey(name: 'initial_remarks', fromJson: _asStr) String? initialRemarks,@JsonKey(name: 'initial_image', fromJson: _mediaStr) String? initialImage,@JsonKey(name: 'initial_video', fromJson: _mediaStr) String? initialVideo,@JsonKey(name: 'initial_audio', fromJson: _mediaStr) String? initialAudio,@JsonKey(name: 'initial_file', fromJson: _mediaStr) String? initialFile,@JsonKey(name: 'initial_multi_images', fromJson: _mediaStrList) List<String> initialMultiImages
 });
 
 
@@ -1515,7 +1538,7 @@ class _$InspectionFieldCopyWithImpl<$Res>
 
 /// Create a copy of InspectionField
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = freezed,Object? fieldId = freezed,Object? title = freezed,Object? fieldType = null,Object? isRequired = null,Object? hasRemarks = null,Object? hasImage = null,Object? hasVideo = null,Object? hasFile = null,Object? hasMultipleImages = null,Object? order = null,Object? metadata = freezed,Object? options = null,Object? referenceMedia = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = freezed,Object? fieldId = freezed,Object? title = freezed,Object? fieldType = null,Object? isRequired = null,Object? hasRemarks = null,Object? hasImage = null,Object? hasVideo = null,Object? hasFile = null,Object? hasMultipleImages = null,Object? order = null,Object? metadata = freezed,Object? options = null,Object? referenceMedia = null,Object? initialValue = freezed,Object? initialRemarks = freezed,Object? initialImage = freezed,Object? initialVideo = freezed,Object? initialAudio = freezed,Object? initialFile = freezed,Object? initialMultiImages = null,}) {
   return _then(_self.copyWith(
 id: freezed == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as int?,fieldId: freezed == fieldId ? _self.fieldId : fieldId // ignore: cast_nullable_to_non_nullable
@@ -1531,7 +1554,14 @@ as bool,order: null == order ? _self.order : order // ignore: cast_nullable_to_n
 as int,metadata: freezed == metadata ? _self.metadata : metadata // ignore: cast_nullable_to_non_nullable
 as Map<String, dynamic>?,options: null == options ? _self.options : options // ignore: cast_nullable_to_non_nullable
 as List<DropdownOption>,referenceMedia: null == referenceMedia ? _self.referenceMedia : referenceMedia // ignore: cast_nullable_to_non_nullable
-as List<ReferenceMedia>,
+as List<ReferenceMedia>,initialValue: freezed == initialValue ? _self.initialValue : initialValue // ignore: cast_nullable_to_non_nullable
+as String?,initialRemarks: freezed == initialRemarks ? _self.initialRemarks : initialRemarks // ignore: cast_nullable_to_non_nullable
+as String?,initialImage: freezed == initialImage ? _self.initialImage : initialImage // ignore: cast_nullable_to_non_nullable
+as String?,initialVideo: freezed == initialVideo ? _self.initialVideo : initialVideo // ignore: cast_nullable_to_non_nullable
+as String?,initialAudio: freezed == initialAudio ? _self.initialAudio : initialAudio // ignore: cast_nullable_to_non_nullable
+as String?,initialFile: freezed == initialFile ? _self.initialFile : initialFile // ignore: cast_nullable_to_non_nullable
+as String?,initialMultiImages: null == initialMultiImages ? _self.initialMultiImages : initialMultiImages // ignore: cast_nullable_to_non_nullable
+as List<String>,
   ));
 }
 
@@ -1616,10 +1646,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( int? id, @JsonKey(name: 'field_id')  String? fieldId,  String? title, @JsonKey(name: 'field_type')  String fieldType, @JsonKey(name: 'is_required')  bool isRequired, @JsonKey(name: 'has_remarks')  bool hasRemarks, @JsonKey(name: 'has_image')  bool hasImage, @JsonKey(name: 'has_video')  bool hasVideo, @JsonKey(name: 'has_file')  bool hasFile, @JsonKey(name: 'has_multiple_images')  bool hasMultipleImages,  int order,  Map<String, dynamic>? metadata,  List<DropdownOption> options, @JsonKey(name: 'reference_media')  List<ReferenceMedia> referenceMedia)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( int? id, @JsonKey(name: 'field_id')  String? fieldId,  String? title, @JsonKey(name: 'field_type')  String fieldType, @JsonKey(name: 'is_required')  bool isRequired, @JsonKey(name: 'has_remarks')  bool hasRemarks, @JsonKey(name: 'has_image')  bool hasImage, @JsonKey(name: 'has_video')  bool hasVideo, @JsonKey(name: 'has_file')  bool hasFile, @JsonKey(name: 'has_multiple_images')  bool hasMultipleImages,  int order,  Map<String, dynamic>? metadata,  List<DropdownOption> options, @JsonKey(name: 'reference_media')  List<ReferenceMedia> referenceMedia, @JsonKey(name: 'initial_value', fromJson: _asStr)  String? initialValue, @JsonKey(name: 'initial_remarks', fromJson: _asStr)  String? initialRemarks, @JsonKey(name: 'initial_image', fromJson: _mediaStr)  String? initialImage, @JsonKey(name: 'initial_video', fromJson: _mediaStr)  String? initialVideo, @JsonKey(name: 'initial_audio', fromJson: _mediaStr)  String? initialAudio, @JsonKey(name: 'initial_file', fromJson: _mediaStr)  String? initialFile, @JsonKey(name: 'initial_multi_images', fromJson: _mediaStrList)  List<String> initialMultiImages)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _InspectionField() when $default != null:
-return $default(_that.id,_that.fieldId,_that.title,_that.fieldType,_that.isRequired,_that.hasRemarks,_that.hasImage,_that.hasVideo,_that.hasFile,_that.hasMultipleImages,_that.order,_that.metadata,_that.options,_that.referenceMedia);case _:
+return $default(_that.id,_that.fieldId,_that.title,_that.fieldType,_that.isRequired,_that.hasRemarks,_that.hasImage,_that.hasVideo,_that.hasFile,_that.hasMultipleImages,_that.order,_that.metadata,_that.options,_that.referenceMedia,_that.initialValue,_that.initialRemarks,_that.initialImage,_that.initialVideo,_that.initialAudio,_that.initialFile,_that.initialMultiImages);case _:
   return orElse();
 
 }
@@ -1637,10 +1667,10 @@ return $default(_that.id,_that.fieldId,_that.title,_that.fieldType,_that.isRequi
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( int? id, @JsonKey(name: 'field_id')  String? fieldId,  String? title, @JsonKey(name: 'field_type')  String fieldType, @JsonKey(name: 'is_required')  bool isRequired, @JsonKey(name: 'has_remarks')  bool hasRemarks, @JsonKey(name: 'has_image')  bool hasImage, @JsonKey(name: 'has_video')  bool hasVideo, @JsonKey(name: 'has_file')  bool hasFile, @JsonKey(name: 'has_multiple_images')  bool hasMultipleImages,  int order,  Map<String, dynamic>? metadata,  List<DropdownOption> options, @JsonKey(name: 'reference_media')  List<ReferenceMedia> referenceMedia)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( int? id, @JsonKey(name: 'field_id')  String? fieldId,  String? title, @JsonKey(name: 'field_type')  String fieldType, @JsonKey(name: 'is_required')  bool isRequired, @JsonKey(name: 'has_remarks')  bool hasRemarks, @JsonKey(name: 'has_image')  bool hasImage, @JsonKey(name: 'has_video')  bool hasVideo, @JsonKey(name: 'has_file')  bool hasFile, @JsonKey(name: 'has_multiple_images')  bool hasMultipleImages,  int order,  Map<String, dynamic>? metadata,  List<DropdownOption> options, @JsonKey(name: 'reference_media')  List<ReferenceMedia> referenceMedia, @JsonKey(name: 'initial_value', fromJson: _asStr)  String? initialValue, @JsonKey(name: 'initial_remarks', fromJson: _asStr)  String? initialRemarks, @JsonKey(name: 'initial_image', fromJson: _mediaStr)  String? initialImage, @JsonKey(name: 'initial_video', fromJson: _mediaStr)  String? initialVideo, @JsonKey(name: 'initial_audio', fromJson: _mediaStr)  String? initialAudio, @JsonKey(name: 'initial_file', fromJson: _mediaStr)  String? initialFile, @JsonKey(name: 'initial_multi_images', fromJson: _mediaStrList)  List<String> initialMultiImages)  $default,) {final _that = this;
 switch (_that) {
 case _InspectionField():
-return $default(_that.id,_that.fieldId,_that.title,_that.fieldType,_that.isRequired,_that.hasRemarks,_that.hasImage,_that.hasVideo,_that.hasFile,_that.hasMultipleImages,_that.order,_that.metadata,_that.options,_that.referenceMedia);case _:
+return $default(_that.id,_that.fieldId,_that.title,_that.fieldType,_that.isRequired,_that.hasRemarks,_that.hasImage,_that.hasVideo,_that.hasFile,_that.hasMultipleImages,_that.order,_that.metadata,_that.options,_that.referenceMedia,_that.initialValue,_that.initialRemarks,_that.initialImage,_that.initialVideo,_that.initialAudio,_that.initialFile,_that.initialMultiImages);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -1657,10 +1687,10 @@ return $default(_that.id,_that.fieldId,_that.title,_that.fieldType,_that.isRequi
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( int? id, @JsonKey(name: 'field_id')  String? fieldId,  String? title, @JsonKey(name: 'field_type')  String fieldType, @JsonKey(name: 'is_required')  bool isRequired, @JsonKey(name: 'has_remarks')  bool hasRemarks, @JsonKey(name: 'has_image')  bool hasImage, @JsonKey(name: 'has_video')  bool hasVideo, @JsonKey(name: 'has_file')  bool hasFile, @JsonKey(name: 'has_multiple_images')  bool hasMultipleImages,  int order,  Map<String, dynamic>? metadata,  List<DropdownOption> options, @JsonKey(name: 'reference_media')  List<ReferenceMedia> referenceMedia)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( int? id, @JsonKey(name: 'field_id')  String? fieldId,  String? title, @JsonKey(name: 'field_type')  String fieldType, @JsonKey(name: 'is_required')  bool isRequired, @JsonKey(name: 'has_remarks')  bool hasRemarks, @JsonKey(name: 'has_image')  bool hasImage, @JsonKey(name: 'has_video')  bool hasVideo, @JsonKey(name: 'has_file')  bool hasFile, @JsonKey(name: 'has_multiple_images')  bool hasMultipleImages,  int order,  Map<String, dynamic>? metadata,  List<DropdownOption> options, @JsonKey(name: 'reference_media')  List<ReferenceMedia> referenceMedia, @JsonKey(name: 'initial_value', fromJson: _asStr)  String? initialValue, @JsonKey(name: 'initial_remarks', fromJson: _asStr)  String? initialRemarks, @JsonKey(name: 'initial_image', fromJson: _mediaStr)  String? initialImage, @JsonKey(name: 'initial_video', fromJson: _mediaStr)  String? initialVideo, @JsonKey(name: 'initial_audio', fromJson: _mediaStr)  String? initialAudio, @JsonKey(name: 'initial_file', fromJson: _mediaStr)  String? initialFile, @JsonKey(name: 'initial_multi_images', fromJson: _mediaStrList)  List<String> initialMultiImages)?  $default,) {final _that = this;
 switch (_that) {
 case _InspectionField() when $default != null:
-return $default(_that.id,_that.fieldId,_that.title,_that.fieldType,_that.isRequired,_that.hasRemarks,_that.hasImage,_that.hasVideo,_that.hasFile,_that.hasMultipleImages,_that.order,_that.metadata,_that.options,_that.referenceMedia);case _:
+return $default(_that.id,_that.fieldId,_that.title,_that.fieldType,_that.isRequired,_that.hasRemarks,_that.hasImage,_that.hasVideo,_that.hasFile,_that.hasMultipleImages,_that.order,_that.metadata,_that.options,_that.referenceMedia,_that.initialValue,_that.initialRemarks,_that.initialImage,_that.initialVideo,_that.initialAudio,_that.initialFile,_that.initialMultiImages);case _:
   return null;
 
 }
@@ -1672,7 +1702,7 @@ return $default(_that.id,_that.fieldId,_that.title,_that.fieldType,_that.isRequi
 @JsonSerializable()
 
 class _InspectionField implements InspectionField {
-  const _InspectionField({this.id, @JsonKey(name: 'field_id') this.fieldId, this.title, @JsonKey(name: 'field_type') this.fieldType = 'text', @JsonKey(name: 'is_required') this.isRequired = false, @JsonKey(name: 'has_remarks') this.hasRemarks = false, @JsonKey(name: 'has_image') this.hasImage = false, @JsonKey(name: 'has_video') this.hasVideo = false, @JsonKey(name: 'has_file') this.hasFile = false, @JsonKey(name: 'has_multiple_images') this.hasMultipleImages = false, this.order = 0, final  Map<String, dynamic>? metadata, final  List<DropdownOption> options = const <DropdownOption>[], @JsonKey(name: 'reference_media') final  List<ReferenceMedia> referenceMedia = const <ReferenceMedia>[]}): _metadata = metadata,_options = options,_referenceMedia = referenceMedia;
+  const _InspectionField({this.id, @JsonKey(name: 'field_id') this.fieldId, this.title, @JsonKey(name: 'field_type') this.fieldType = 'text', @JsonKey(name: 'is_required') this.isRequired = false, @JsonKey(name: 'has_remarks') this.hasRemarks = false, @JsonKey(name: 'has_image') this.hasImage = false, @JsonKey(name: 'has_video') this.hasVideo = false, @JsonKey(name: 'has_file') this.hasFile = false, @JsonKey(name: 'has_multiple_images') this.hasMultipleImages = false, this.order = 0, final  Map<String, dynamic>? metadata, final  List<DropdownOption> options = const <DropdownOption>[], @JsonKey(name: 'reference_media') final  List<ReferenceMedia> referenceMedia = const <ReferenceMedia>[], @JsonKey(name: 'initial_value', fromJson: _asStr) this.initialValue, @JsonKey(name: 'initial_remarks', fromJson: _asStr) this.initialRemarks, @JsonKey(name: 'initial_image', fromJson: _mediaStr) this.initialImage, @JsonKey(name: 'initial_video', fromJson: _mediaStr) this.initialVideo, @JsonKey(name: 'initial_audio', fromJson: _mediaStr) this.initialAudio, @JsonKey(name: 'initial_file', fromJson: _mediaStr) this.initialFile, @JsonKey(name: 'initial_multi_images', fromJson: _mediaStrList) final  List<String> initialMultiImages = const <String>[]}): _metadata = metadata,_options = options,_referenceMedia = referenceMedia,_initialMultiImages = initialMultiImages;
   factory _InspectionField.fromJson(Map<String, dynamic> json) => _$InspectionFieldFromJson(json);
 
 @override final  int? id;
@@ -1709,6 +1739,21 @@ class _InspectionField implements InspectionField {
   return EqualUnmodifiableListView(_referenceMedia);
 }
 
+// Resume pre-fill (server's saved answer for this field). Empty on a fresh
+// initialize; populated by GET /{id}/resume so the merge can re-hydrate.
+@override@JsonKey(name: 'initial_value', fromJson: _asStr) final  String? initialValue;
+@override@JsonKey(name: 'initial_remarks', fromJson: _asStr) final  String? initialRemarks;
+@override@JsonKey(name: 'initial_image', fromJson: _mediaStr) final  String? initialImage;
+@override@JsonKey(name: 'initial_video', fromJson: _mediaStr) final  String? initialVideo;
+@override@JsonKey(name: 'initial_audio', fromJson: _mediaStr) final  String? initialAudio;
+@override@JsonKey(name: 'initial_file', fromJson: _mediaStr) final  String? initialFile;
+ final  List<String> _initialMultiImages;
+@override@JsonKey(name: 'initial_multi_images', fromJson: _mediaStrList) List<String> get initialMultiImages {
+  if (_initialMultiImages is EqualUnmodifiableListView) return _initialMultiImages;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableListView(_initialMultiImages);
+}
+
 
 /// Create a copy of InspectionField
 /// with the given fields replaced by the non-null parameter values.
@@ -1723,16 +1768,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _InspectionField&&(identical(other.id, id) || other.id == id)&&(identical(other.fieldId, fieldId) || other.fieldId == fieldId)&&(identical(other.title, title) || other.title == title)&&(identical(other.fieldType, fieldType) || other.fieldType == fieldType)&&(identical(other.isRequired, isRequired) || other.isRequired == isRequired)&&(identical(other.hasRemarks, hasRemarks) || other.hasRemarks == hasRemarks)&&(identical(other.hasImage, hasImage) || other.hasImage == hasImage)&&(identical(other.hasVideo, hasVideo) || other.hasVideo == hasVideo)&&(identical(other.hasFile, hasFile) || other.hasFile == hasFile)&&(identical(other.hasMultipleImages, hasMultipleImages) || other.hasMultipleImages == hasMultipleImages)&&(identical(other.order, order) || other.order == order)&&const DeepCollectionEquality().equals(other._metadata, _metadata)&&const DeepCollectionEquality().equals(other._options, _options)&&const DeepCollectionEquality().equals(other._referenceMedia, _referenceMedia));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _InspectionField&&(identical(other.id, id) || other.id == id)&&(identical(other.fieldId, fieldId) || other.fieldId == fieldId)&&(identical(other.title, title) || other.title == title)&&(identical(other.fieldType, fieldType) || other.fieldType == fieldType)&&(identical(other.isRequired, isRequired) || other.isRequired == isRequired)&&(identical(other.hasRemarks, hasRemarks) || other.hasRemarks == hasRemarks)&&(identical(other.hasImage, hasImage) || other.hasImage == hasImage)&&(identical(other.hasVideo, hasVideo) || other.hasVideo == hasVideo)&&(identical(other.hasFile, hasFile) || other.hasFile == hasFile)&&(identical(other.hasMultipleImages, hasMultipleImages) || other.hasMultipleImages == hasMultipleImages)&&(identical(other.order, order) || other.order == order)&&const DeepCollectionEquality().equals(other._metadata, _metadata)&&const DeepCollectionEquality().equals(other._options, _options)&&const DeepCollectionEquality().equals(other._referenceMedia, _referenceMedia)&&(identical(other.initialValue, initialValue) || other.initialValue == initialValue)&&(identical(other.initialRemarks, initialRemarks) || other.initialRemarks == initialRemarks)&&(identical(other.initialImage, initialImage) || other.initialImage == initialImage)&&(identical(other.initialVideo, initialVideo) || other.initialVideo == initialVideo)&&(identical(other.initialAudio, initialAudio) || other.initialAudio == initialAudio)&&(identical(other.initialFile, initialFile) || other.initialFile == initialFile)&&const DeepCollectionEquality().equals(other._initialMultiImages, _initialMultiImages));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,fieldId,title,fieldType,isRequired,hasRemarks,hasImage,hasVideo,hasFile,hasMultipleImages,order,const DeepCollectionEquality().hash(_metadata),const DeepCollectionEquality().hash(_options),const DeepCollectionEquality().hash(_referenceMedia));
+int get hashCode => Object.hashAll([runtimeType,id,fieldId,title,fieldType,isRequired,hasRemarks,hasImage,hasVideo,hasFile,hasMultipleImages,order,const DeepCollectionEquality().hash(_metadata),const DeepCollectionEquality().hash(_options),const DeepCollectionEquality().hash(_referenceMedia),initialValue,initialRemarks,initialImage,initialVideo,initialAudio,initialFile,const DeepCollectionEquality().hash(_initialMultiImages)]);
 
 @override
 String toString() {
-  return 'InspectionField(id: $id, fieldId: $fieldId, title: $title, fieldType: $fieldType, isRequired: $isRequired, hasRemarks: $hasRemarks, hasImage: $hasImage, hasVideo: $hasVideo, hasFile: $hasFile, hasMultipleImages: $hasMultipleImages, order: $order, metadata: $metadata, options: $options, referenceMedia: $referenceMedia)';
+  return 'InspectionField(id: $id, fieldId: $fieldId, title: $title, fieldType: $fieldType, isRequired: $isRequired, hasRemarks: $hasRemarks, hasImage: $hasImage, hasVideo: $hasVideo, hasFile: $hasFile, hasMultipleImages: $hasMultipleImages, order: $order, metadata: $metadata, options: $options, referenceMedia: $referenceMedia, initialValue: $initialValue, initialRemarks: $initialRemarks, initialImage: $initialImage, initialVideo: $initialVideo, initialAudio: $initialAudio, initialFile: $initialFile, initialMultiImages: $initialMultiImages)';
 }
 
 
@@ -1743,7 +1788,7 @@ abstract mixin class _$InspectionFieldCopyWith<$Res> implements $InspectionField
   factory _$InspectionFieldCopyWith(_InspectionField value, $Res Function(_InspectionField) _then) = __$InspectionFieldCopyWithImpl;
 @override @useResult
 $Res call({
- int? id,@JsonKey(name: 'field_id') String? fieldId, String? title,@JsonKey(name: 'field_type') String fieldType,@JsonKey(name: 'is_required') bool isRequired,@JsonKey(name: 'has_remarks') bool hasRemarks,@JsonKey(name: 'has_image') bool hasImage,@JsonKey(name: 'has_video') bool hasVideo,@JsonKey(name: 'has_file') bool hasFile,@JsonKey(name: 'has_multiple_images') bool hasMultipleImages, int order, Map<String, dynamic>? metadata, List<DropdownOption> options,@JsonKey(name: 'reference_media') List<ReferenceMedia> referenceMedia
+ int? id,@JsonKey(name: 'field_id') String? fieldId, String? title,@JsonKey(name: 'field_type') String fieldType,@JsonKey(name: 'is_required') bool isRequired,@JsonKey(name: 'has_remarks') bool hasRemarks,@JsonKey(name: 'has_image') bool hasImage,@JsonKey(name: 'has_video') bool hasVideo,@JsonKey(name: 'has_file') bool hasFile,@JsonKey(name: 'has_multiple_images') bool hasMultipleImages, int order, Map<String, dynamic>? metadata, List<DropdownOption> options,@JsonKey(name: 'reference_media') List<ReferenceMedia> referenceMedia,@JsonKey(name: 'initial_value', fromJson: _asStr) String? initialValue,@JsonKey(name: 'initial_remarks', fromJson: _asStr) String? initialRemarks,@JsonKey(name: 'initial_image', fromJson: _mediaStr) String? initialImage,@JsonKey(name: 'initial_video', fromJson: _mediaStr) String? initialVideo,@JsonKey(name: 'initial_audio', fromJson: _mediaStr) String? initialAudio,@JsonKey(name: 'initial_file', fromJson: _mediaStr) String? initialFile,@JsonKey(name: 'initial_multi_images', fromJson: _mediaStrList) List<String> initialMultiImages
 });
 
 
@@ -1760,7 +1805,7 @@ class __$InspectionFieldCopyWithImpl<$Res>
 
 /// Create a copy of InspectionField
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = freezed,Object? fieldId = freezed,Object? title = freezed,Object? fieldType = null,Object? isRequired = null,Object? hasRemarks = null,Object? hasImage = null,Object? hasVideo = null,Object? hasFile = null,Object? hasMultipleImages = null,Object? order = null,Object? metadata = freezed,Object? options = null,Object? referenceMedia = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = freezed,Object? fieldId = freezed,Object? title = freezed,Object? fieldType = null,Object? isRequired = null,Object? hasRemarks = null,Object? hasImage = null,Object? hasVideo = null,Object? hasFile = null,Object? hasMultipleImages = null,Object? order = null,Object? metadata = freezed,Object? options = null,Object? referenceMedia = null,Object? initialValue = freezed,Object? initialRemarks = freezed,Object? initialImage = freezed,Object? initialVideo = freezed,Object? initialAudio = freezed,Object? initialFile = freezed,Object? initialMultiImages = null,}) {
   return _then(_InspectionField(
 id: freezed == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as int?,fieldId: freezed == fieldId ? _self.fieldId : fieldId // ignore: cast_nullable_to_non_nullable
@@ -1776,7 +1821,14 @@ as bool,order: null == order ? _self.order : order // ignore: cast_nullable_to_n
 as int,metadata: freezed == metadata ? _self._metadata : metadata // ignore: cast_nullable_to_non_nullable
 as Map<String, dynamic>?,options: null == options ? _self._options : options // ignore: cast_nullable_to_non_nullable
 as List<DropdownOption>,referenceMedia: null == referenceMedia ? _self._referenceMedia : referenceMedia // ignore: cast_nullable_to_non_nullable
-as List<ReferenceMedia>,
+as List<ReferenceMedia>,initialValue: freezed == initialValue ? _self.initialValue : initialValue // ignore: cast_nullable_to_non_nullable
+as String?,initialRemarks: freezed == initialRemarks ? _self.initialRemarks : initialRemarks // ignore: cast_nullable_to_non_nullable
+as String?,initialImage: freezed == initialImage ? _self.initialImage : initialImage // ignore: cast_nullable_to_non_nullable
+as String?,initialVideo: freezed == initialVideo ? _self.initialVideo : initialVideo // ignore: cast_nullable_to_non_nullable
+as String?,initialAudio: freezed == initialAudio ? _self.initialAudio : initialAudio // ignore: cast_nullable_to_non_nullable
+as String?,initialFile: freezed == initialFile ? _self.initialFile : initialFile // ignore: cast_nullable_to_non_nullable
+as String?,initialMultiImages: null == initialMultiImages ? _self._initialMultiImages : initialMultiImages // ignore: cast_nullable_to_non_nullable
+as List<String>,
   ));
 }
 

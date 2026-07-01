@@ -36,7 +36,11 @@ const _maxMultiImages = 11;
 /// field-type-badge card for non-media fields and a full dark camera HUD for
 /// media fields. Matches formUi.md + cameraUi.md.
 class InspectionScreen extends ConsumerStatefulWidget {
-  const InspectionScreen({super.key});
+  const InspectionScreen({super.key, this.resumeInspectionId});
+
+  /// When set (resuming a server draft from the reports list), the screen pulls
+  /// the draft from GET /{id}/resume and merges its saved answers before render.
+  final int? resumeInspectionId;
 
   @override
   ConsumerState<InspectionScreen> createState() => _InspectionScreenState();
@@ -52,8 +56,20 @@ class _InspectionScreenState extends ConsumerState<InspectionScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (ref.read(inspectionSessionControllerProvider) == null) {
-        ref.read(inspectionSessionControllerProvider.notifier).resumeDraft();
+      final notifier =
+          ref.read(inspectionSessionControllerProvider.notifier);
+      final explicitId = widget.resumeInspectionId;
+      if (explicitId != null) {
+        // Resuming a server draft (possibly created on another device/session).
+        notifier.resumeFromServer(explicitId);
+      } else if (ref.read(inspectionSessionControllerProvider) == null) {
+        // No active session: restore the local draft, then — if it was already
+        // initialized on the server — overlay any server-side progress (answers
+        // + media uploaded from another session). Local edits always win.
+        if (notifier.resumeDraft()) {
+          final id = ref.read(inspectionSessionControllerProvider)?.inspectionId;
+          if (id != null) notifier.resumeFromServer(id);
+        }
       }
     });
   }
@@ -460,6 +476,8 @@ class _InspectionScreenState extends ConsumerState<InspectionScreen> {
             sum + s.fields.where((f) => _fieldProcessed(f, draft)).length);
     final percent =
         totalFields == 0 ? 0 : (processed / totalFields * 100).round();
+    final requiredLeft =
+        _requiredStatus(sections, draft).where((e) => !e.done).length;
     final isLast = _sectionIndex == sections.length - 1 &&
         _itemIndex == fields.length - 1;
     final canPrev = _sectionIndex > 0 || _itemIndex > 0;

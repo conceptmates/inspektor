@@ -99,12 +99,20 @@ class OfflineInspectionController extends Notifier<OfflineState> {
         return;
       }
 
-      // Finalise the existing draft by id (minted at initialize before going
-      // offline) so reconnecting never creates a duplicate.
-      final id = current.inspectionId;
+      // Finalise the existing draft by id. Normally minted at initialize before
+      // going offline; for an inspection STARTED offline (no id yet) mint one
+      // now from the stored vehicle details before submitting — so reconnecting
+      // completes the journey without ever creating a duplicate.
+      var id = current.inspectionId;
       if (id == null) {
-        reload();
-        return;
+        id = await _mintInspectionId(current);
+        if (id == null) {
+          // Still offline, or vehicle details missing — keep queued, retry next.
+          reload();
+          return;
+        }
+        current = current.copyWith(inspectionId: id);
+        await _svc.upsertPending(current);
       }
       final submitRes = await repo.submitInspectionById(id, body);
       if (!ref.mounted) return;
@@ -120,6 +128,25 @@ class OfflineInspectionController extends Notifier<OfflineState> {
   Future<void> delete(String id) async {
     await _svc.delete(id);
     reload();
+  }
+
+  /// Mints a server inspection id for an offline-started draft (no id yet) using
+  /// its stored vehicle details. Returns null if still offline or the details
+  /// are incomplete, so the record stays queued for the next sync.
+  Future<int?> _mintInspectionId(LocalInspection insp) async {
+    final vd = insp.vehicleDetails ?? insp.submissionData ?? const {};
+    final brandId = (vd['vehicle_brand_id'] as num?)?.toInt();
+    final modelId = (vd['vehicle_model_id'] as num?)?.toInt();
+    if (brandId == null || modelId == null) return null;
+    final res = await ref.read(inspectionRepositoryProvider).initializeInspection(
+          vehicleBrandId: brandId,
+          vehicleModelId: modelId,
+          year: vd['year']?.toString(),
+          variant: vd['variant']?.toString(),
+          colour: (vd['colour'] ?? vd['color'])?.toString(),
+          transmission: vd['transmission']?.toString(),
+        );
+    return res is ApiSuccess<InspectionInit> ? res.data.inspectionId : null;
   }
 
   void _setSubmitting(String id, bool v) => state = (

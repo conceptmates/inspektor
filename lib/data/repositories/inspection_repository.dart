@@ -172,6 +172,24 @@ class InspectionRepository {
     ));
   }
 
+  /// GET /dynamic-inspections/{id}/resume — re-fetch a draft with the server's
+  /// saved answers + uploaded media pre-filled (parsed into template.savedFields
+  /// + per-field initial_*). Same shape as initialize, plus resumed data.
+  Future<ApiResult<InspectionInit>> resumeInspection(int id) async {
+    final res = await _api.get<Map<String, dynamic>>(
+      APIList.resumeInspection(id),
+      fromJson: _asMap,
+    );
+    if (res is! ApiSuccess<Map<String, dynamic>>) return castApiError(res);
+    final body = res.data;
+    final data = (body['data'] as Map?)?.cast<String, dynamic>() ?? body;
+    return ApiSuccess((
+      template: InspectionInitializationResponse.fromJson(data),
+      inspectionId:
+          (data['inspection_id'] ?? data['id'] ?? body['inspection_id']) as int?,
+    ));
+  }
+
   /// PUT /inspections/{id} — resend/update answers (offline sync path).
   Future<ApiResult<Map<String, dynamic>>> updateInspection({
     required Object id,
@@ -191,8 +209,9 @@ class InspectionRepository {
       _historyPage(APIList.inspectionHistory, page);
 
   /// GET /dynamic-inspections/my-history?page= — current inspector's reports.
-  Future<ApiResult<HistoryPage>> getMyHistory(int page) =>
-      _historyPage(APIList.myHistory, page);
+  /// Pass [status] (e.g. 'draft') to list only resumable drafts.
+  Future<ApiResult<HistoryPage>> getMyHistory(int page, {String? status}) =>
+      _historyPage(APIList.myHistory, page, status: status);
 
   /// GET /dynamic-inspections/stats — dashboard stats.
   Future<ApiResult<InspectionStats>> getStats({
@@ -213,10 +232,11 @@ class InspectionRepository {
 
   // --- helpers ---
 
-  Future<ApiResult<HistoryPage>> _historyPage(String path, int page) async {
+  Future<ApiResult<HistoryPage>> _historyPage(String path, int page,
+      {String? status}) async {
     final res = await _api.get<Map<String, dynamic>>(
       path,
-      query: {'page': page},
+      query: {'page': page, 'status': ?status},
       fromJson: _asMap,
     );
     if (res is! ApiSuccess<Map<String, dynamic>>) return castApiError(res);

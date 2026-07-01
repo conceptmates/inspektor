@@ -18,12 +18,16 @@ class InspectionList extends StatelessWidget {
     required this.onRefresh,
     required this.onLoadMore,
     this.emptyMessage = 'No inspections yet.',
+    this.onResume,
   });
 
   final AsyncValue<PaginatedInspections> state;
   final Future<void> Function() onRefresh;
   final VoidCallback onLoadMore;
   final String emptyMessage;
+
+  /// When provided, draft rows show a "Resume" action (server-side resume).
+  final void Function(InspectionHistory item)? onResume;
 
   @override
   Widget build(BuildContext context) {
@@ -67,7 +71,7 @@ class InspectionList extends StatelessWidget {
                 child: const Center(child: CircularProgressIndicator()),
               );
             }
-            return _InspectionCard(data.items[i]);
+            return InspectionHistoryCard(data.items[i], onResume: onResume);
           },
         ),
       ),
@@ -75,9 +79,18 @@ class InspectionList extends StatelessWidget {
   }
 }
 
-class _InspectionCard extends StatelessWidget {
-  const _InspectionCard(this.item);
+/// One inspection row (status chip + report link, or Resume on draft rows).
+/// Public so the Reports "Pending" tab can render server drafts identically.
+class InspectionHistoryCard extends StatelessWidget {
+  const InspectionHistoryCard(this.item,
+      {super.key, this.onResume, this.forceResume = false});
   final InspectionHistory item;
+  final void Function(InspectionHistory item)? onResume;
+
+  /// Show Resume regardless of [item.status] — used by the Pending tab, whose
+  /// rows are fetched via `?status=draft` so are known to be resumable even if
+  /// the API labels them differently.
+  final bool forceResume;
 
   Color _statusColor(BuildContext context) => switch (item.status) {
         'approved' => Colors.green,
@@ -93,6 +106,7 @@ class _InspectionCard extends StatelessWidget {
     final reg = v['registration_number']?.toString() ?? 'Inspection';
     final makeModel = v['make_model']?.toString() ?? '';
     final reportUrl = item.links?['view'];
+    final canResume = onResume != null && (forceResume || item.status == 'draft');
 
     return Card(
       child: Padding(
@@ -135,7 +149,17 @@ class _InspectionCard extends StatelessWidget {
                     style: theme.textTheme.bodySmall),
               ],
             ),
-            if (reportUrl != null) ...[
+            if (canResume) ...[
+              SizedBox(height: 8.w),
+              Align(
+                alignment: Alignment.centerRight,
+                child: FilledButton.icon(
+                  icon: const Icon(Icons.play_arrow, size: 18),
+                  label: const Text('Resume'),
+                  onPressed: () => onResume!(item),
+                ),
+              ),
+            ] else if (reportUrl != null) ...[
               SizedBox(height: 8.w),
               Align(
                 alignment: Alignment.centerRight,

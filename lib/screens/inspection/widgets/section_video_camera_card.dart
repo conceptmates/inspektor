@@ -70,6 +70,9 @@ class _SectionVideoCameraCardState extends State<SectionVideoCameraCard>
   bool _isInitialized = false;
   bool _isInitializing = false;
   bool _isDisposePending = false;
+  // The current controller's in-flight initialize() future. A controller must
+  // never be disposed until this settles (see _disposeWhenSettled).
+  Future<void>? _initInFlight;
   bool _hasError = false;
   String _errorMessage = '';
   int _currentCameraIndex = 0;
@@ -125,10 +128,28 @@ class _SectionVideoCameraCardState extends State<SectionVideoCameraCard>
     }
     _isDisposePending = false;
     final controller = _controller;
+    final init = _initInFlight;
     _controller = null;
+    _initInFlight = null;
     if (controller != null) {
-      _pendingDisposal = controller.dispose();
+      _pendingDisposal = _disposeWhenSettled(controller, init);
     }
+  }
+
+  /// Disposes [c], but only AFTER its in-flight [init] future settles. Disposing
+  /// a CameraController while initialize() is still running makes the package set
+  /// `value` on a disposed controller → "used after disposed". Errors (incl. a
+  /// double-dispose race between two init generations) are swallowed.
+  Future<void> _disposeWhenSettled(
+      CameraController c, Future<void>? init) async {
+    if (init != null) {
+      try {
+        await init;
+      } catch (_) {}
+    }
+    try {
+      await c.dispose();
+    } catch (_) {}
   }
 
   Future<void> _initCamera() async {
@@ -251,11 +272,16 @@ class _SectionVideoCameraCardState extends State<SectionVideoCameraCard>
 
   Future<bool> _tryStartCamera(CameraDescription camera) async {
     final old = _controller;
+    final oldInit = _initInFlight;
     _controller = null;
+    _initInFlight = null;
     if (old != null) {
-      final f = old.dispose();
+      // Dispose the previous controller only after ITS initialize() settles —
+      // a paused→resumed cycle can land here while the old controller is still
+      // initializing, and disposing mid-init crashes the camera package.
+      final f = _disposeWhenSettled(old, oldInit);
       _pendingDisposal = f;
-      await f.timeout(const Duration(seconds: 1), onTimeout: () {});
+      await f.timeout(const Duration(seconds: 2), onTimeout: () {});
       _pendingDisposal = null;
     }
 
@@ -276,10 +302,13 @@ class _SectionVideoCameraCardState extends State<SectionVideoCameraCard>
     _controller = controller;
 
     try {
-      await controller.initialize();
+      final initFuture = controller.initialize();
+      _initInFlight = initFuture;
+      await initFuture;
+      _initInFlight = null;
       if (_isDisposePending || !mounted || _controller != controller) {
         _isDisposePending = false;
-        _pendingDisposal = controller.dispose();
+        _pendingDisposal = _disposeWhenSettled(controller, null);
         _controller = null;
         return false;
       }
@@ -293,13 +322,15 @@ class _SectionVideoCameraCardState extends State<SectionVideoCameraCard>
       widget.onFlashModeChanged?.call(false);
       return true;
     } on CameraException {
+      _initInFlight = null;
       _isDisposePending = false;
-      _pendingDisposal = _controller?.dispose();
+      _pendingDisposal = _disposeWhenSettled(controller, null);
       _controller = null;
       return false;
     } catch (_) {
+      _initInFlight = null;
       _isDisposePending = false;
-      _pendingDisposal = _controller?.dispose();
+      _pendingDisposal = _disposeWhenSettled(controller, null);
       _controller = null;
       return false;
     }

@@ -22,6 +22,9 @@ _InspectionInitializationResponse _$InspectionInitializationResponseFromJson(
   structure: json['structure'] == null
       ? const InspectionStructure()
       : InspectionStructure.fromJson(json['structure'] as Map<String, dynamic>),
+  savedFields: _readSaved(json, 'savedFields') == null
+      ? const <String, Map<String, dynamic>>{}
+      : _parseSavedFields(_readSaved(json, 'savedFields')),
 );
 
 Map<String, dynamic> _$InspectionInitializationResponseToJson(
@@ -30,6 +33,7 @@ Map<String, dynamic> _$InspectionInitializationResponseToJson(
   'templateType': instance.templateType?.toJson(),
   'vehicleInfo': instance.vehicleInfo?.toJson(),
   'structure': instance.structure.toJson(),
+  'savedFields': instance.savedFields,
 };
 
 _InspectionTemplate _$InspectionTemplateFromJson(Map<String, dynamic> json) =>
@@ -140,6 +144,15 @@ _InspectionField _$InspectionFieldFromJson(Map<String, dynamic> json) =>
               ?.map((e) => ReferenceMedia.fromJson(e as Map<String, dynamic>))
               .toList() ??
           const <ReferenceMedia>[],
+      initialValue: _asStr(json['initial_value']),
+      initialRemarks: _asStr(json['initial_remarks']),
+      initialImage: _mediaStr(json['initial_image']),
+      initialVideo: _mediaStr(json['initial_video']),
+      initialAudio: _mediaStr(json['initial_audio']),
+      initialFile: _mediaStr(json['initial_file']),
+      initialMultiImages: json['initial_multi_images'] == null
+          ? const <String>[]
+          : _mediaStrList(json['initial_multi_images']),
     );
 
 Map<String, dynamic> _$InspectionFieldToJson(
@@ -159,6 +172,13 @@ Map<String, dynamic> _$InspectionFieldToJson(
   'metadata': instance.metadata,
   'options': instance.options.map((e) => e.toJson()).toList(),
   'reference_media': instance.referenceMedia.map((e) => e.toJson()).toList(),
+  'initial_value': instance.initialValue,
+  'initial_remarks': instance.initialRemarks,
+  'initial_image': instance.initialImage,
+  'initial_video': instance.initialVideo,
+  'initial_audio': instance.initialAudio,
+  'initial_file': instance.initialFile,
+  'initial_multi_images': instance.initialMultiImages,
 };
 
 _DropdownOption _$DropdownOptionFromJson(Map<String, dynamic> json) =>

@@ -16,6 +16,31 @@ import 'package:permission_handler/permission_handler.dart';
 /// platform-channel crashes.
 Future<void>? cameraCardPendingDisposal;
 
+/// Fills the parent box with the live preview, scaled to **cover** (no portrait
+/// letterbox bars) and clipped — instead of [CameraPreview]'s default contain
+/// fit which leaves black bars when the preview aspect ≠ the box aspect.
+Widget _coveredPreview(CameraController controller) {
+  return LayoutBuilder(
+    builder: (context, constraints) {
+      final isLandscape =
+          MediaQuery.orientationOf(context) == Orientation.landscape;
+      // Mirror CameraPreview's own AspectRatio: portrait inverts the ratio.
+      final previewAspect = isLandscape
+          ? controller.value.aspectRatio
+          : 1 / controller.value.aspectRatio;
+      final boxAspect = constraints.maxWidth / constraints.maxHeight;
+      var scale = boxAspect / previewAspect;
+      if (scale < 1) scale = 1 / scale;
+      return ClipRect(
+        child: Transform.scale(
+          scale: scale,
+          child: Center(child: CameraPreview(controller)),
+        ),
+      );
+    },
+  );
+}
+
 /// A self-contained camera card with a live preview, flash/torch toggle, a
 /// fullscreen view, and a capture → review → rotate → accept/retake overlay.
 ///
@@ -75,8 +100,7 @@ class _SectionCameraCardState extends State<SectionCameraCard>
   // Bridges to the library-level [cameraCardPendingDisposal] so mode switches
   // across different camera cards don't conflict on hardware.
   static Future<void>? get _pendingDisposal => cameraCardPendingDisposal;
-  static set _pendingDisposal(Future<void>? v) =>
-      cameraCardPendingDisposal = v;
+  static set _pendingDisposal(Future<void>? v) => cameraCardPendingDisposal = v;
 
   CameraController? _controller;
   List<CameraDescription>? _cameras;
@@ -88,6 +112,9 @@ class _SectionCameraCardState extends State<SectionCameraCard>
   // platform channel callback. Set this flag instead and let _tryStartCamera
   // do the actual disposal once initialize() resolves.
   bool _isDisposePending = false;
+  // The current controller's in-flight initialize() future. A controller must
+  // never be disposed until this settles (see _disposeWhenSettled).
+  Future<void>? _initInFlight;
   bool _hasError = false;
   String _errorMessage = '';
   bool _isCapturing = false;
@@ -139,11 +166,29 @@ class _SectionCameraCardState extends State<SectionCameraCard>
     }
     _isDisposePending = false;
     final controller = _controller;
+    final init = _initInFlight;
     _controller = null;
+    _initInFlight = null;
     if (controller != null) {
       // Store the async disposal future so the next card can await it.
-      _pendingDisposal = controller.dispose();
+      _pendingDisposal = _disposeWhenSettled(controller, init);
     }
+  }
+
+  /// Disposes [c], but only AFTER its in-flight [init] future settles. Disposing
+  /// a CameraController while initialize() is still running makes the package set
+  /// `value` on a disposed controller → "used after disposed". Errors (incl. a
+  /// double-dispose race between two init generations) are swallowed.
+  Future<void> _disposeWhenSettled(
+      CameraController c, Future<void>? init) async {
+    if (init != null) {
+      try {
+        await init;
+      } catch (_) {}
+    }
+    try {
+      await c.dispose();
+    } catch (_) {}
   }
 
   Future<void> _initCamera() async {
@@ -181,8 +226,10 @@ class _SectionCameraCardState extends State<SectionCameraCard>
       final postPermDisposal = _pendingDisposal;
       if (postPermDisposal != null) {
         _pendingDisposal = null;
-        await postPermDisposal
-            .timeout(const Duration(seconds: 2), onTimeout: () {});
+        await postPermDisposal.timeout(
+          const Duration(seconds: 2),
+          onTimeout: () {},
+        );
       }
       if (!mounted || _initGeneration != myGen) return;
 
@@ -257,11 +304,16 @@ class _SectionCameraCardState extends State<SectionCameraCard>
   Future<bool> _tryStartCamera(CameraDescription camera) async {
     // Release the current (possibly-failed) controller and wait.
     final old = _controller;
+    final oldInit = _initInFlight;
     _controller = null;
+    _initInFlight = null;
     if (old != null) {
-      final f = old.dispose();
+      // Dispose the previous controller only after ITS initialize() settles —
+      // a paused→resumed cycle can land here while the old controller is still
+      // initializing, and disposing mid-init crashes the camera package.
+      final f = _disposeWhenSettled(old, oldInit);
       _pendingDisposal = f;
-      await f.timeout(const Duration(seconds: 1), onTimeout: () {});
+      await f.timeout(const Duration(seconds: 2), onTimeout: () {});
       _pendingDisposal = null;
     }
 
@@ -269,19 +321,25 @@ class _SectionCameraCardState extends State<SectionCameraCard>
 
     final controller = CameraController(
       camera,
-      ResolutionPreset.max,
+      // veryHigh (1080p), not max: inspection photos get downscaled to 1920px
+      // on save anyway, so capturing at sensor-max (e.g. 48MP) only adds 1-2s of
+      // takePicture encode for pixels we throw away.
+      ResolutionPreset.veryHigh,
       enableAudio: false,
       imageFormatGroup: ImageFormatGroup.jpeg,
     );
     _controller = controller;
 
     try {
-      await controller.initialize();
+      final initFuture = controller.initialize();
+      _initInFlight = initFuture;
+      await initFuture;
+      _initInFlight = null;
       // If a dispose() arrived while we were awaiting init, honour it now that
       // the platform callback has completed (so no "used after disposed" crash).
       if (_isDisposePending || !mounted || _controller != controller) {
         _isDisposePending = false;
-        _pendingDisposal = controller.dispose();
+        _pendingDisposal = _disposeWhenSettled(controller, null);
         _controller = null;
         return false;
       }
@@ -293,13 +351,15 @@ class _SectionCameraCardState extends State<SectionCameraCard>
       widget.onFlashReady?.call(_toggleFlash);
       return true;
     } on CameraException {
+      _initInFlight = null;
       _isDisposePending = false;
-      _pendingDisposal = _controller?.dispose();
+      _pendingDisposal = _disposeWhenSettled(controller, null);
       _controller = null;
       return false;
     } catch (_) {
+      _initInFlight = null;
       _isDisposePending = false;
-      _pendingDisposal = _controller?.dispose();
+      _pendingDisposal = _disposeWhenSettled(controller, null);
       _controller = null;
       return false;
     }
@@ -340,9 +400,9 @@ class _SectionCameraCardState extends State<SectionCameraCard>
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to capture: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to capture: $e')));
       }
     } finally {
       if (mounted) setState(() => _isCapturing = false);
@@ -409,10 +469,7 @@ class _SectionCameraCardState extends State<SectionCameraCard>
     if (_hasError) {
       return Container(
         height: _cardHeight,
-        decoration: BoxDecoration(
-          color: Colors.black,
-          borderRadius: radius,
-        ),
+        decoration: BoxDecoration(color: Colors.black, borderRadius: radius),
         child: Center(
           child: Padding(
             padding: EdgeInsets.symmetric(horizontal: 24.w),
@@ -483,10 +540,7 @@ class _SectionCameraCardState extends State<SectionCameraCard>
     if (!_isInitialized || _controller == null) {
       return Container(
         height: _cardHeight,
-        decoration: BoxDecoration(
-          color: Colors.black,
-          borderRadius: radius,
-        ),
+        decoration: BoxDecoration(color: Colors.black, borderRadius: radius),
         child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -524,7 +578,7 @@ class _SectionCameraCardState extends State<SectionCameraCard>
         child: Stack(
           fit: StackFit.expand,
           children: [
-            Center(child: CameraPreview(_controller!)),
+            _coveredPreview(_controller!),
             if (widget.showControls) ...[
               _buildInstructionBar(),
               _buildControlBar(),
@@ -768,9 +822,9 @@ class _FullscreenCameraViewState extends State<_FullscreenCameraView> {
       widget.onCaptured(file);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to capture: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to capture: $e')));
       }
     } finally {
       if (mounted) setState(() => _isCapturing = false);
@@ -784,7 +838,7 @@ class _FullscreenCameraViewState extends State<_FullscreenCameraView> {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          Center(child: CameraPreview(widget.controller)),
+          _coveredPreview(widget.controller),
           SafeArea(
             child: Padding(
               padding: EdgeInsets.fromLTRB(8.w, 8.h, 8.w, 0),

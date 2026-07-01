@@ -13,6 +13,14 @@ class ConnectivityService {
     return InternetConnectionChecker.createInstance().hasConnection;
   }
 
+  /// Cheap radio-state check (no DNS/HTTP probe). Use on hot paths like media
+  /// capture where a full reachability probe per action adds visible latency —
+  /// the actual upload result handles "connected but no internet" by failing.
+  Future<bool> hasNetwork() async {
+    final results = await Connectivity().checkConnectivity();
+    return results.any((r) => r != ConnectivityResult.none);
+  }
+
   /// Stream of connectivity changes (drives auto-sync in the offline controller).
   Stream<List<ConnectivityResult>> get onChanged =>
       Connectivity().onConnectivityChanged;

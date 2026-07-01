@@ -180,13 +180,15 @@ class _InspectionSectionsDrawerState extends State<InspectionSectionsDrawer> {
             ),
           ),
         ),
-        AnimatedCrossFade(
-          firstChild: const SizedBox(width: double.infinity),
-          secondChild: _fieldList(index, isCompleted, isActive),
-          crossFadeState: isExpanded
-              ? CrossFadeState.showSecond
-              : CrossFadeState.showFirst,
+        // ponytail: AnimatedSize + conditional child so COLLAPSED sections
+        // don't build their full field Column. AnimatedCrossFade built both
+        // children every frame → hundreds of field widgets per scroll = jank.
+        AnimatedSize(
           duration: const Duration(milliseconds: 200),
+          alignment: Alignment.topCenter,
+          child: isExpanded
+              ? _fieldList(index, isCompleted, isActive)
+              : const SizedBox(width: double.infinity),
         ),
       ],
     );

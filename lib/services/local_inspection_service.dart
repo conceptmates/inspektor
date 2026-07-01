@@ -15,7 +15,8 @@ import 'media_storage_service.dart';
 /// records are saved AND queried with the same status (`pending`), so
 /// [getPending] always finds them (old app saved 'pending' but queried 'offline').
 class LocalInspectionService {
-  LocalInspectionService(this._box, [this._media = const MediaStorageService()]);
+  LocalInspectionService(this._box, [MediaStorageService? media])
+      : _media = media ?? MediaStorageService();
 
   final Box<String> _box;
   final MediaStorageService _media;
@@ -76,10 +77,30 @@ class LocalInspectionService {
   /// (Media-file cleanup happens in P7.)
   Future<void> markSubmitted(String id) => delete(id);
 
+  // --- Cached template (offline-first start) ---
+  // Stored under a reserved key prefix so it never parses as a queue entry.
+
+  static String _templateKey(Object modelId) => '__template_$modelId';
+
+  /// Remember the last template for a vehicle model so an inspection of the same
+  /// type can be started with no network (id minted later, on sync).
+  Future<void> cacheTemplate(Object modelId, Map<String, dynamic> templateJson) =>
+      _box.put(_templateKey(modelId), jsonEncode(templateJson));
+
+  Map<String, dynamic>? getCachedTemplate(Object modelId) {
+    final raw = _box.get(_templateKey(modelId));
+    if (raw == null) return null;
+    try {
+      return jsonDecode(raw) as Map<String, dynamic>;
+    } catch (_) {
+      return null;
+    }
+  }
+
   // --- internals ---
 
   Iterable<LocalInspection> _queueEntries() => _box.keys
-      .where((k) => k != draftKey)
+      .where((k) => k != draftKey && !(k as String).startsWith('__template_'))
       .map((k) => _read(k as String))
       .whereType<LocalInspection>();
 

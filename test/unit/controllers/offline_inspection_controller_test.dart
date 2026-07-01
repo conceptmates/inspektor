@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:inspektor/controllers/offline_inspection_controller.dart';
 import 'package:inspektor/data/repositories/inspection_repository.dart';
+import 'package:inspektor/models/inspection_template_model.dart';
 import 'package:inspektor/models/local_inspection.dart';
 import 'package:inspektor/services/api/api_result.dart';
 import 'package:inspektor/services/connectivity_service.dart';
@@ -16,14 +17,18 @@ class _FakeConn implements ConnectivityService {
   @override
   Future<bool> hasInternet() async => true;
   @override
+  Future<bool> hasNetwork() async => true;
+  @override
   Stream<List<ConnectivityResult>> get onChanged =>
       Stream<List<ConnectivityResult>>.empty();
 }
 
 class _FakeRepo implements InspectionRepository {
-  _FakeRepo(this.uploadByItem);
+  _FakeRepo(this.uploadByItem, {this.initResult});
   final Map<String, ApiResult<String>> uploadByItem;
+  ApiResult<InspectionInit>? initResult;
   bool submitCalled = false;
+  Object? submittedWithId;
 
   @override
   Future<ApiResult<String>> uploadMedia({
@@ -38,9 +43,21 @@ class _FakeRepo implements InspectionRepository {
   Future<ApiResult<SubmitResult>> submitInspectionById(
       Object id, Map<String, dynamic> body) async {
     submitCalled = true;
+    submittedWithId = id;
     return const ApiSuccess(
         (inspectionId: 1, redirectUrl: null, uuid: null));
   }
+
+  @override
+  Future<ApiResult<InspectionInit>> initializeInspection({
+    required int vehicleBrandId,
+    required int vehicleModelId,
+    String? year,
+    String? variant,
+    String? colour,
+    String? transmission,
+  }) async =>
+      initResult ?? const ApiNetworkError();
 
   @override
   dynamic noSuchMethod(Invocation invocation) =>
@@ -129,5 +146,71 @@ void main() {
 
     expect(repo.submitCalled, isTrue);
     expect(svc.getPending(), isEmpty); // markSubmitted removed it
+  });
+
+  test('offline-started draft (null id) mints an id then submits', () async {
+    final pending = LocalInspection(
+      id: 'insp2',
+      createdAt: DateTime(2026, 6, 22),
+      status: LocalStatus.pending,
+      inspectionId: null, // started offline — no server id yet
+      vehicleDetails: const {'vehicle_brand_id': 1, 'vehicle_model_id': 5},
+      submissionData:
+          jsonDecode('{"inspection_data":{}}') as Map<String, dynamic>,
+      pendingMedia: const [],
+    );
+    await svc.upsertPending(pending);
+
+    final repo = _FakeRepo(
+      const {},
+      initResult: ApiSuccess((
+        template: const InspectionInitializationResponse(),
+        inspectionId: 777,
+      )),
+    );
+    final container = ProviderContainer(overrides: [
+      localInspectionServiceProvider.overrideWithValue(svc),
+      inspectionRepositoryProvider.overrideWithValue(repo),
+      connectivityServiceProvider.overrideWithValue(_FakeConn()),
+    ]);
+    addTearDown(container.dispose);
+
+    await container
+        .read(offlineInspectionControllerProvider.notifier)
+        .retry(pending);
+
+    expect(repo.submitCalled, isTrue);
+    expect(repo.submittedWithId, 777); // minted id used for submit
+    expect(svc.getPending(), isEmpty);
+  });
+
+  test('null id + still offline → stays queued, no submit', () async {
+    final pending = LocalInspection(
+      id: 'insp3',
+      createdAt: DateTime(2026, 6, 22),
+      status: LocalStatus.pending,
+      inspectionId: null,
+      vehicleDetails: const {'vehicle_brand_id': 1, 'vehicle_model_id': 5},
+      submissionData:
+          jsonDecode('{"inspection_data":{}}') as Map<String, dynamic>,
+      pendingMedia: const [],
+    );
+    await svc.upsertPending(pending);
+
+    // initResult stays null → initializeInspection returns ApiNetworkError.
+    final repo = _FakeRepo(const {});
+    final container = ProviderContainer(overrides: [
+      localInspectionServiceProvider.overrideWithValue(svc),
+      inspectionRepositoryProvider.overrideWithValue(repo),
+      connectivityServiceProvider.overrideWithValue(_FakeConn()),
+    ]);
+    addTearDown(container.dispose);
+
+    await container
+        .read(offlineInspectionControllerProvider.notifier)
+        .retry(pending);
+
+    expect(repo.submitCalled, isFalse);
+    expect(svc.getPending(), hasLength(1)); // kept for next sync
   });
 }

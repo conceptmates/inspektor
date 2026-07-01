@@ -52,12 +52,45 @@ void main() {
     ));
     await tester.pump();
 
-    await tester.enterText(find.byType(TextField).first, 'a@b.c');
-    await tester.enterText(find.byType(TextField).last, 'pw');
+    await tester.enterText(find.byType(TextField).first, 'a@b.com');
+    await tester.enterText(find.byType(TextField).last, 'secret1');
     await tester.tap(find.text('Sign In'));
     await tester.pump(); // login starts (isLoading)
     await tester.pump(const Duration(milliseconds: 400)); // async settles
 
     expect(find.text('Bad creds'), findsOneWidget);
+  });
+
+  testWidgets('blocks submit and shows validation errors on empty fields',
+      (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(ProviderScope(child: _wrap(const LoginScreen())));
+    await tester.pump();
+
+    await tester.tap(find.text('Sign In'));
+    await tester.pump();
+
+    expect(find.text('Email is required'), findsOneWidget);
+    expect(find.text('Password is required'), findsOneWidget);
+  });
+
+  testWidgets('rejects malformed email and short password', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(ProviderScope(child: _wrap(const LoginScreen())));
+    await tester.pump();
+
+    await tester.enterText(find.byType(TextField).first, 'not-an-email');
+    await tester.enterText(find.byType(TextField).last, '123');
+    await tester.tap(find.text('Sign In'));
+    await tester.pump();
+
+    expect(find.text('Enter a valid email'), findsOneWidget);
+    expect(find.text('Password must be at least 6 characters'), findsOneWidget);
   });
 }

@@ -20,6 +20,9 @@ class APIList {
   // Finalise an existing draft (processing_status = completed).
   static String submitInspectionById(Object id) =>
       '/dynamic-inspections/$id/submit';
+  // Re-fetch a draft with its saved answers + uploaded media pre-filled.
+  static String resumeInspection(Object id) =>
+      '/dynamic-inspections/$id/resume';
   static String updateInspection(Object id) => '/inspections/$id';
 
   // --- Lists / stats ---

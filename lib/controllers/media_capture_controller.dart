@@ -91,7 +91,10 @@ class MediaCaptureController extends Notifier<Map<String, bool>> {
   Future<String> _upload(
       String localPath, String section, String itemId, String kind) async {
     final draft = ref.read(inspectionSessionControllerProvider);
-    final online = await ref.read(connectivityServiceProvider).hasInternet();
+    // Cheap radio check, not a full reachability probe — the latter adds a
+    // multi-host network probe per capture. If the upload fails (incl. "wifi
+    // but no internet"), we fall through to the offline queue below.
+    final online = await ref.read(connectivityServiceProvider).hasNetwork();
     if (online) {
       final res = await ref.read(inspectionRepositoryProvider).uploadMedia(
             filePath: localPath,

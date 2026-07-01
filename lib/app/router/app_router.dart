@@ -127,7 +127,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: RoutePaths.inspection,
         name: RouteNames.inspection,
-        builder: (_, _) => const InspectionScreen(),
+        // `?resumeId=<id>` resumes a server draft (from the reports list);
+        // absent → continue the local in-progress draft.
+        builder: (_, state) => InspectionScreen(
+          resumeInspectionId:
+              int.tryParse(state.uri.queryParameters['resumeId'] ?? ''),
+        ),
       ),
       GoRoute(
         path: RoutePaths.inspectionSuccess,
