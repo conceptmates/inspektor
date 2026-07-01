@@ -131,12 +131,14 @@ real **Attendance/Leaves** feature added. Decisions revised from the original pl
   full camera HUD (FILE/PHOTO/VIDEO/AUDIO tabs, shutter ring, flash, gallery, REF, flag chips),
   sections drawer, flag-issues sheet, dark nav bar; RC verify; field-info sheet
 - [x] Dark success (gradient check circle, details card, Go to Homepage / View Report)
+- [x] **Reports/History cards exact-UI** (`InspectionHistoryCard`): `Reg:` prefix, CarSpy status pills (APPROVED/DRAFT/…), "Make & Model / Variant / Year / Date" labelled rows (hide-if-empty), relative dates ("Today/Yesterday, h:mm a"), **eye view** (`visibility_outlined`, launches `links['view']` from `report_url` — no separate API; loading + error dialog) shown on completed **and** draft rows, alongside Resume on drafts. Widget test `inspection_history_card_test.dart`
 
 ## P9 — Attendance / Leaves / Work-Assigned ✅
 - [x] models `attendance_models.dart` (AttendanceRecord, InspectorLeave, LeaveRequest)
 - [x] `attendance_repository.dart` (inspector leaves list/request/cancel; admin leaves list/approve/reject; admin attendance) + 6 endpoints in api_list
 - [x] `attendance_controllers.dart` (generic `Paged<T>`/`PagedNotifier`; inspector leaves, admin leaves, admin attendance — filters/loadMore/actions)
-- [x] screens: `AttendanceScreen` (role router), `InspectorLeavesScreen` (+coming-soon banner), `LeaveApplicationScreen`, `AdminAttendanceScreen` (2 tabs), `WorkAssignedScreen` (mock)
+- [x] screens: `AttendanceScreen` (role router), `InspectorLeavesScreen`, `LeaveApplicationScreen`, `AdminAttendanceScreen` (2 tabs), `WorkAssignedScreen` (mock)
+- [x] **inspector attendance check-in/out tracker** (port of old `inspector_attendance_screen.dart`): live hero card (on/off clock, elapsed ticker, geolocation on check-in), manual "Add Attendance" sheet (date + in/out time pickers), Recent Activity list; app-bar "Leaves" button → `InspectorLeavesScreen`. Local-only sessions (matches old app — no API). Replaced the coming-soon banner; `AttendanceScreen` routes inspectors here. Widget test `inspector_attendance_screen_test.dart` (render + manual sheet)
 - [x] ATTENDANCE nav tab enabled + shell branch; Work-Assigned tab disabled
 - [x] attendance repo tests; unit suite green; analyze clean
-- [ ] **follow-up:** rewrite the skipped `inspection_screen_test` for the new dark screen; widget tests for attendance screens
+- [ ] **follow-up:** rewrite the skipped `inspection_screen_test` for the new dark screen; widget tests for the remaining attendance screens (leaves list, admin)

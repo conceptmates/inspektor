@@ -269,6 +269,12 @@ class _InspectionScreenState extends ConsumerState<InspectionScreen> {
     );
     if (!(ok ?? false)) return;
 
+    // Hold submission behind a blocking sheet until every still-uploading photo
+    // finishes — so a burst captured just before Submit is never dropped
+    // mid-upload. (submit() also settles internally; this is the visible wait.)
+    await _awaitPendingUploads();
+    if (!mounted) return;
+
     final outcome =
         await ref.read(inspectionSubmitControllerProvider.notifier).submit();
     if (!mounted) return;
@@ -293,6 +299,27 @@ class _InspectionScreenState extends ConsumerState<InspectionScreen> {
       RouteNames.inspectionSuccess,
       extra: InspectionSuccessArgs(outcome: outcome),
     );
+  }
+
+  /// Shows a non-dismissible sheet while photos are still uploading and closes
+  /// it once every capture settles. No-op when nothing is in flight.
+  Future<void> _awaitPendingUploads() async {
+    final capture = ref.read(mediaCaptureControllerProvider.notifier);
+    if (!capture.hasInFlight) return;
+    final navigator = Navigator.of(context);
+    final sheetClosed = showModalBottomSheet<void>(
+      context: context,
+      isDismissible: false,
+      enableDrag: false,
+      backgroundColor: Colors.transparent,
+      builder: (_) => const _UploadWaitSheet(),
+    );
+    try {
+      await capture.settle();
+    } finally {
+      if (mounted && navigator.canPop()) navigator.pop();
+    }
+    await sheetClosed; // wait for the sheet to finish dismissing
   }
 
   // --- required-field validation (ported from old app) ----------------------
@@ -2223,6 +2250,66 @@ class _FullScreenVideoCamera extends StatelessWidget {
           height: MediaQuery.sizeOf(context).height,
           instructionText: instruction,
           onCaptured: (f) => Navigator.of(context).pop(f),
+        ),
+      ),
+    );
+  }
+}
+
+/// Blocking sheet shown at submit while captured photos finish uploading. It
+/// cannot be dismissed (back button / drag / tap-outside) so the user can't
+/// submit past an in-flight upload; the submit flow pops it once uploads settle.
+class _UploadWaitSheet extends ConsumerWidget {
+  const _UploadWaitSheet();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final busy = ref.watch(mediaCaptureControllerProvider);
+    final count = busy.values.where((b) => b).length;
+    final scheme = Theme.of(context).colorScheme;
+    return PopScope(
+      canPop: false,
+      child: SafeArea(
+        top: false,
+        child: Container(
+          width: double.infinity,
+          margin: EdgeInsets.all(16.w),
+          padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 24.h),
+          decoration: BoxDecoration(
+            color: scheme.surface,
+            borderRadius: BorderRadius.circular(16.r),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: 42.w,
+                height: 42.w,
+                child: CircularProgressIndicator(
+                    strokeWidth: 3, color: scheme.primary),
+              ),
+              SizedBox(height: 18.h),
+              Text(
+                'Finishing photo uploads',
+                style: TextStyle(
+                    fontSize: 16.sp,
+                    fontWeight: FontWeight.w600,
+                    color: scheme.onSurface),
+              ),
+              SizedBox(height: 6.h),
+              Text(
+                count > 0
+                    ? 'Please wait — $count ${count == 1 ? 'upload is' : 'uploads are'} '
+                        'still in progress. Keep the app open.'
+                    : 'Almost done…',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                    fontSize: 13.sp,
+                    height: 1.35,
+                    color: scheme.onSurfaceVariant),
+              ),
+            ],
+          ),
         ),
       ),
     );

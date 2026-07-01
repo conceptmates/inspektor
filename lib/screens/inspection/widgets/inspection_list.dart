@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../controllers/inspection_lists_controller.dart';
 import '../../../models/inspection_history_model.dart';
+import '../../../themes/carspy_colors.dart';
 import '../../widgets/error_widget.dart';
 import '../../widgets/loading_widget.dart';
 
@@ -92,85 +93,177 @@ class InspectionHistoryCard extends StatelessWidget {
   /// the API labels them differently.
   final bool forceResume;
 
-  Color _statusColor(BuildContext context) => switch (item.status) {
-        'approved' => Colors.green,
-        'pending' => Colors.orange,
-        'rejected' => Colors.red,
-        _ => Theme.of(context).colorScheme.onSurfaceVariant,
+  /// Status pill colour. Drafts share the amber "pending" tone, matching the
+  /// old app's DRAFT badge.
+  Color _statusColor() => switch (item.status.toLowerCase()) {
+        'approved' => CarSpyColors.approved,
+        'pending' => CarSpyColors.pending,
+        'rejected' => CarSpyColors.rejected,
+        'draft' => CarSpyColors.pending,
+        _ => CarSpyColors.onSurfaceVariant,
       };
+
+  /// Relative date matching the old app ("Today, 3:38 PM" / "Yesterday, …").
+  String _formatDate(DateTime date) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final d = DateTime(date.year, date.month, date.day);
+    if (d == today) return 'Today, ${DateFormat('h:mm a').format(date)}';
+    if (d == today.subtract(const Duration(days: 1))) {
+      return 'Yesterday, ${DateFormat('h:mm a').format(date)}';
+    }
+    return DateFormat('MMM d, yyyy, h:mm a').format(date);
+  }
+
+  /// A labelled detail row; hidden when the server didn't populate the value
+  /// (e.g. my-history omits variant/year) rather than rendering a bare "N/A".
+  Widget _infoRow(String label, dynamic value) {
+    if (value == null || value.toString().trim().isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return Padding(
+      padding: EdgeInsets.only(bottom: 2.w),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 80.w,
+            child: Text(label,
+                style: TextStyle(
+                    fontSize: 12.5.sp,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.black45)),
+          ),
+          Expanded(
+            child: Text(value.toString(),
+                style: TextStyle(fontSize: 12.5.sp, color: Colors.black87)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Opens the server-rendered report in the browser — brief loading dialog,
+  /// then external launch; an error dialog on failure (old-app flow).
+  Future<void> _launchReport(BuildContext context, String url) async {
+    final navigator = Navigator.of(context);
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+    try {
+      final ok =
+          await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+      if (navigator.canPop()) navigator.pop();
+      if (!ok) throw Exception('Could not open the report.');
+    } catch (_) {
+      if (navigator.canPop()) navigator.pop();
+      if (!context.mounted) return;
+      showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Error'),
+          content:
+              const Text("We couldn't open this report. Please try again."),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('OK')),
+          ],
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final v = item.vehicleInfo;
-    final reg = v['registration_number']?.toString() ?? 'Inspection';
-    final makeModel = v['make_model']?.toString() ?? '';
+    final reg = v['registration_number']?.toString() ?? 'N/A';
     final reportUrl = item.links?['view'];
-    final canResume = onResume != null && (forceResume || item.status == 'draft');
+    final statusColor = _statusColor();
+    final canView = reportUrl != null && reportUrl.isNotEmpty;
+    final canResume =
+        onResume != null && (forceResume || item.status == 'draft');
 
-    return Card(
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20.r),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
       child: Padding(
-        padding: EdgeInsets.all(16.w),
+        padding: EdgeInsets.all(13.w),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
                 Expanded(
-                  child: Text(reg,
-                      style: theme.textTheme.titleMedium
-                          ?.copyWith(fontWeight: FontWeight.bold)),
-                ),
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.w),
-                  decoration: BoxDecoration(
-                    color: _statusColor(context).withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(20.r),
+                  child: Text(
+                    'Reg: $reg',
+                    style: TextStyle(
+                        fontSize: 16.sp,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.black87),
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  child: Text(item.status,
-                      style: TextStyle(
-                          color: _statusColor(context), fontSize: 12.sp)),
+                ),
+                SizedBox(width: 8.w),
+                Container(
+                  padding:
+                      EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.w),
+                  decoration: BoxDecoration(
+                    color: statusColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(20.r),
+                    border:
+                        Border.all(color: statusColor.withValues(alpha: 0.3)),
+                  ),
+                  child: Text(
+                    item.status.toUpperCase(),
+                    style: TextStyle(
+                        fontSize: 11.sp,
+                        fontWeight: FontWeight.w700,
+                        color: statusColor,
+                        letterSpacing: 0.4),
+                  ),
                 ),
               ],
             ),
-            if (makeModel.isNotEmpty) ...[
-              SizedBox(height: 4.w),
-              Text(makeModel, style: theme.textTheme.bodyMedium),
-            ],
-            SizedBox(height: 8.w),
-            Row(
-              children: [
-                Icon(Icons.person_outline,
-                    size: 14.sp, color: theme.colorScheme.onSurfaceVariant),
-                SizedBox(width: 4.w),
-                Text(item.inspectorName, style: theme.textTheme.bodySmall),
-                const Spacer(),
-                Text(DateFormat('dd MMM yyyy').format(item.date),
-                    style: theme.textTheme.bodySmall),
-              ],
-            ),
-            if (canResume) ...[
-              SizedBox(height: 8.w),
-              Align(
-                alignment: Alignment.centerRight,
-                child: FilledButton.icon(
-                  icon: const Icon(Icons.play_arrow, size: 18),
-                  label: const Text('Resume'),
-                  onPressed: () => onResume!(item),
-                ),
+            SizedBox(height: 7.w),
+            _infoRow('Make & Model', v['make_model']),
+            _infoRow('Variant', v['variant']),
+            _infoRow('Year', v['manufacturing_year']),
+            _infoRow('Date', _formatDate(item.date)),
+            if (canView || canResume)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  if (canView)
+                    IconButton(
+                      visualDensity: VisualDensity.compact,
+                      constraints: const BoxConstraints(),
+                      padding: EdgeInsets.all(6.w),
+                      onPressed: () => _launchReport(context, reportUrl),
+                      icon: const Icon(Icons.visibility_outlined,
+                          color: CarSpyColors.primary),
+                    ),
+                  if (canResume)
+                    TextButton.icon(
+                      icon: const Icon(Icons.play_arrow, size: 16),
+                      label: const Text('Resume'),
+                      style: TextButton.styleFrom(
+                          foregroundColor: CarSpyColors.pending),
+                      onPressed: () => onResume!(item),
+                    ),
+                ],
               ),
-            ] else if (reportUrl != null) ...[
-              SizedBox(height: 8.w),
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton.icon(
-                  icon: const Icon(Icons.open_in_new, size: 16),
-                  label: const Text('View report'),
-                  onPressed: () => launchUrl(Uri.parse(reportUrl),
-                      mode: LaunchMode.externalApplication),
-                ),
-              ),
-            ],
           ],
         ),
       ),

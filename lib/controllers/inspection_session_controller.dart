@@ -210,6 +210,16 @@ class InspectionSessionController extends Notifier<LocalInspection?> {
   void setMultiImages(String itemId, List<String> paths) => _update(
       (d) => d.copyWith(itemMultiImages: {...d.itemMultiImages, itemId: paths}));
 
+  /// Atomically append one uploaded URL (or local path) to a multi-image field.
+  /// The read + write happen inside a single [_update] so concurrent captures
+  /// for the SAME field can never overwrite each other's URL (fire-and-forget
+  /// captures from the HUD can resolve in any order — see media_capture).
+  void appendMultiImage(String itemId, String path) => _update((d) {
+        final cur = d.itemMultiImages[itemId] ?? const <String>[];
+        return d.copyWith(
+            itemMultiImages: {...d.itemMultiImages, itemId: [...cur, path]});
+      });
+
   // --- media removal (re-capture / discard) ---
   // Each remover also drops the matching offline upload entry (by local path),
   // otherwise a media captured offline then deleted would be re-uploaded and

@@ -8,14 +8,10 @@ import '../../services/api/api_result.dart';
 import '../../themes/attendance_colors.dart';
 import 'leave_application_screen.dart';
 
-/// The signed-in inspector's leave history. Rendered as the attendance tab root
-/// with [showComingSoon] while the check-in/out tracker is disabled — an
-/// "Attendance — coming soon" banner sits above the list in that case.
+/// The signed-in inspector's leave history. Reached from the attendance
+/// tracker's app-bar "Leaves" button; lists requests with filter/apply/cancel.
 class InspectorLeavesScreen extends ConsumerStatefulWidget {
-  const InspectorLeavesScreen({super.key, this.showComingSoon = false});
-
-  /// When true, an "Attendance — coming soon" banner sits above the list.
-  final bool showComingSoon;
+  const InspectorLeavesScreen({super.key});
 
   @override
   ConsumerState<InspectorLeavesScreen> createState() =>
@@ -240,7 +236,6 @@ class _InspectorLeavesScreenState extends ConsumerState<InspectorLeavesScreen> {
       ),
       body: Column(
         children: [
-          if (widget.showComingSoon) const _ComingSoonBanner(),
           _buildFilterBar(),
           Expanded(
             child: RefreshIndicator(
@@ -586,96 +581,6 @@ class _InspectorLeavesScreenState extends ConsumerState<InspectorLeavesScreen> {
           icon: Icons.hourglass_top_rounded,
         );
     }
-  }
-}
-
-/// Placeholder shown where the check-in/out tracker will live once enabled.
-class _ComingSoonBanner extends StatelessWidget {
-  const _ComingSoonBanner();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 14, 16, 2),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF1E293B), AttendanceColors.primary],
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: AttendanceColors.primary.withValues(alpha: 0.18),
-            blurRadius: 14,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            alignment: Alignment.center,
-            child: const Icon(Icons.fingerprint_rounded,
-                color: Colors.white, size: 24),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Text(
-                      'Attendance',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: AttendanceColors.amber.withValues(alpha: 0.22),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: const Text(
-                        'Coming soon',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800,
-                          color: AttendanceColors.amber,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Check-in / check-out tracking is on the way. For now, '
-                  'manage your leaves below.',
-                  style: TextStyle(
-                    fontSize: 12,
-                    height: 1.4,
-                    color: Colors.white.withValues(alpha: 0.8),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
   }
 }
 

@@ -10,6 +10,7 @@ import '../services/api/api_result.dart';
 import '../services/connectivity_service.dart';
 import '../services/local_inspection_service.dart';
 import 'inspection_session_controller.dart';
+import 'media_capture_controller.dart';
 import 'offline_inspection_controller.dart';
 
 typedef SubmitState = ({bool isSubmitting, String? error});
@@ -22,16 +23,26 @@ class InspectionSubmitController extends Notifier<SubmitState> {
   SubmitState build() => (isSubmitting: false, error: null);
 
   Future<SubmitOutcome> submit() async {
+    state = (isSubmitting: true, error: null);
+
+    // Finish any in-flight media capture/upload before deciding the submit path.
+    // A photo captured moments before submit uploads asynchronously; until it
+    // resolves it is neither an uploaded URL in the draft nor a pendingMedia
+    // entry, so a straight submit would strip it (httpOnly) and silently drop
+    // it. settle() guarantees every capture has landed (URL on success, pending
+    // entry on failure) before we read the draft below.
+    await ref.read(mediaCaptureControllerProvider.notifier).settle();
+    if (!ref.mounted) return (queued: false, result: null, error: null);
+
     final draft = ref.read(inspectionSessionControllerProvider);
     if (draft == null) {
+      state = (isSubmitting: false, error: 'No active inspection');
       return (queued: false, result: null, error: 'No active inspection');
     }
 
     final template = draft.inspectionTemplate != null
         ? InspectionInitializationResponse.fromJson(draft.inspectionTemplate!)
         : const InspectionInitializationResponse();
-
-    state = (isSubmitting: true, error: null);
 
     final online = await ref.read(connectivityServiceProvider).hasInternet();
     // Media that still has a local path (captured offline, or an upload that
