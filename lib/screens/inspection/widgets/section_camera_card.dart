@@ -19,7 +19,7 @@ Future<void>? cameraCardPendingDisposal;
 /// Fills the parent box with the live preview, scaled to **cover** (no portrait
 /// letterbox bars) and clipped — instead of [CameraPreview]'s default contain
 /// fit which leaves black bars when the preview aspect ≠ the box aspect.
-Widget _coveredPreview(CameraController controller) {
+Widget coveredCameraPreview(CameraController controller) {
   return LayoutBuilder(
     builder: (context, constraints) {
       final isLandscape =
@@ -578,7 +578,7 @@ class _SectionCameraCardState extends State<SectionCameraCard>
         child: Stack(
           fit: StackFit.expand,
           children: [
-            _coveredPreview(_controller!),
+            coveredCameraPreview(_controller!),
             if (widget.showControls) ...[
               _buildInstructionBar(),
               _buildControlBar(),
@@ -838,7 +838,7 @@ class _FullscreenCameraViewState extends State<_FullscreenCameraView> {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          _coveredPreview(widget.controller),
+          coveredCameraPreview(widget.controller),
           SafeArea(
             child: Padding(
               padding: EdgeInsets.fromLTRB(8.w, 8.h, 8.w, 0),

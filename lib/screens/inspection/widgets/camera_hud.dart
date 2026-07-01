@@ -187,7 +187,9 @@ class ConditionFlagRow extends StatelessWidget {
             : Icons.radio_button_unchecked;
     final String condLabel = flagged
         ? '$flaggedCount issue(s) flagged'
-        : 'No issues — looks good';
+        : markedNoIssues
+            ? 'No issues — looks good'
+            : 'Tap to set condition';
 
     return Positioned(
       bottom: 10.w,
@@ -467,12 +469,16 @@ class CapturedMediaPreview extends StatelessWidget {
     this.imagePath,
     this.fileName,
     this.onTapImage,
+    this.videoPath,
+    this.onTapVideo,
   });
 
   final CaptureMode mode;
   final String? imagePath;
   final String? fileName;
   final VoidCallback? onTapImage;
+  final String? videoPath;
+  final VoidCallback? onTapVideo;
 
   @override
   Widget build(BuildContext context) {
@@ -515,6 +521,26 @@ class CapturedMediaPreview extends StatelessWidget {
           ),
         );
       case CaptureMode.video:
+        final canPreview = videoPath != null && onTapVideo != null;
+        return GestureDetector(
+          onTap: canPreview ? onTapVideo : null,
+          child: Container(
+            color: const Color(0xFF111111),
+            alignment: Alignment.center,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.play_circle_outline,
+                    color: Colors.white70, size: 64.sp),
+                SizedBox(height: 14.w),
+                Text(
+                  canPreview ? 'Tap to preview video' : 'Video captured',
+                  style: TextStyle(color: Colors.white70, fontSize: 14.sp),
+                ),
+              ],
+            ),
+          ),
+        );
       case CaptureMode.audio:
         return Container(
           color: const Color(0xFF111111),
@@ -522,18 +548,10 @@ class CapturedMediaPreview extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                mode == CaptureMode.video
-                    ? Icons.play_circle_outline
-                    : Icons.audiotrack,
-                color: Colors.white70,
-                size: 64.sp,
-              ),
+              Icon(Icons.audiotrack, color: Colors.white70, size: 64.sp),
               SizedBox(height: 14.w),
-              Text(
-                mode == CaptureMode.video ? 'Video captured' : 'Audio recorded',
-                style: TextStyle(color: Colors.white70, fontSize: 14.sp),
-              ),
+              Text('Audio recorded',
+                  style: TextStyle(color: Colors.white70, fontSize: 14.sp)),
             ],
           ),
         );

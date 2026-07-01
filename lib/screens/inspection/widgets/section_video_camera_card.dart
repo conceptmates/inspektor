@@ -6,6 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import 'section_camera_card.dart' show coveredCameraPreview;
+
 // Reuses the library-level [cameraCardPendingDisposal] defined in the photo
 // card so switching between photo and video mode waits for the previous
 // controller to release the camera hardware before the next one initialises.
@@ -753,7 +755,7 @@ class _SectionVideoCameraCardState extends State<SectionVideoCameraCard>
         child: Stack(
           fit: StackFit.expand,
           children: [
-            Center(child: CameraPreview(_controller!)),
+            coveredCameraPreview(_controller!),
             // Top bar: recording timer or instruction.
             if (widget.showControls)
               Positioned(

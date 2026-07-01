@@ -29,6 +29,7 @@ import 'widgets/flag_issues_sheet.dart';
 import 'widgets/section_camera_card.dart';
 import 'widgets/section_video_camera_card.dart';
 import 'widgets/sections_drawer.dart';
+import 'widgets/video_preview_screen.dart';
 
 const _maxMultiImages = 11;
 
@@ -421,6 +422,156 @@ class _InspectionScreenState extends ConsumerState<InspectionScreen> {
     );
   }
 
+  // --- completion tracker ----------------------------------------------------
+
+  /// Every required (or registration) field with its completion status, across
+  /// all sections — backs the on-demand checklist overlay.
+  List<({int section, int field, String label, bool done})> _requiredStatus(
+      List<InspectionSection> sections, LocalInspection draft) {
+    final out = <({int section, int field, String label, bool done})>[];
+    for (var s = 0; s < sections.length; s++) {
+      final fields = _fields(sections[s]);
+      for (var i = 0; i < fields.length; i++) {
+        final f = fields[i];
+        if (!(f.isRequired || _isRegField(f))) continue;
+        out.add((
+          section: s,
+          field: i,
+          label: '${f.title ?? fieldKey(f)}${_missingTypeSuffix(f)}',
+          done: _fieldProcessed(f, draft),
+        ));
+      }
+    }
+    return out;
+  }
+
+  /// On-demand checklist of all required fields with done/pending status, a
+  /// progress bar, tap-to-jump, and a Submit shortcut once everything is done.
+  Future<void> _showCompletionTracker() async {
+    final draft = ref.read(inspectionSessionControllerProvider);
+    if (draft?.inspectionTemplate == null) return;
+    final template =
+        InspectionInitializationResponse.fromJson(draft!.inspectionTemplate!);
+    final items = _requiredStatus(_sections(template), draft);
+    final doneCount = items.where((e) => e.done).length;
+    final allDone = items.isEmpty || doneCount == items.length;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: const Color(0xFF1A1A1A),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(20.w, 16.w, 20.w, 16.w),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.checklist_rtl,
+                      color: allDone ? Colors.green : Colors.orange,
+                      size: 22.sp),
+                  SizedBox(width: 10.w),
+                  Text('Required checklist',
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18.sp,
+                          fontWeight: FontWeight.w700)),
+                ],
+              ),
+              SizedBox(height: 8.w),
+              if (items.isEmpty)
+                Text('No required fields — ready to submit.',
+                    style: TextStyle(color: Colors.white60, fontSize: 13.sp))
+              else ...[
+                Text('$doneCount of ${items.length} required complete',
+                    style:
+                        TextStyle(color: Colors.white60, fontSize: 13.sp)),
+                SizedBox(height: 8.w),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4.r),
+                  child: LinearProgressIndicator(
+                    value: doneCount / items.length,
+                    minHeight: 6,
+                    backgroundColor: Colors.white12,
+                    color: allDone ? Colors.green : InspectionColors.navBlue,
+                  ),
+                ),
+                SizedBox(height: 12.w),
+                Flexible(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: items.length,
+                    separatorBuilder: (_, _) =>
+                        Divider(height: 1, color: Colors.white.withAlpha(15)),
+                    itemBuilder: (_, idx) {
+                      final m = items[idx];
+                      return ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(
+                          m.done
+                              ? Icons.check_circle
+                              : Icons.radio_button_unchecked,
+                          color: m.done ? Colors.green : Colors.orange,
+                          size: 20.sp,
+                        ),
+                        title: Text(m.label,
+                            style: TextStyle(
+                                color: m.done ? Colors.white54 : Colors.white,
+                                fontSize: 14.sp)),
+                        subtitle: Text('Section ${m.section + 1}',
+                            style: TextStyle(
+                                color: Colors.white38, fontSize: 11.sp)),
+                        trailing: m.done
+                            ? null
+                            : Icon(Icons.chevron_right,
+                                color: Colors.white38, size: 20.sp),
+                        onTap: () {
+                          Navigator.pop(ctx);
+                          _jumpTo(m.section, m.field);
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+              SizedBox(height: 12.w),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor:
+                        allDone ? Colors.green : InspectionColors.navBlue,
+                    foregroundColor: Colors.white,
+                    padding: EdgeInsets.symmetric(vertical: 14.w),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12.r)),
+                  ),
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    if (allDone) {
+                      _confirmSubmit();
+                    } else {
+                      final next = items.firstWhere((e) => !e.done);
+                      _jumpTo(next.section, next.field);
+                    }
+                  },
+                  icon: Icon(allDone ? Icons.check : Icons.arrow_forward,
+                      size: 18.sp),
+                  label: Text(
+                      allDone ? 'Submit inspection' : 'Go to next required'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   // --- progress -------------------------------------------------------------
 
   bool _fieldProcessed(InspectionField f, LocalInspection draft) {
@@ -498,6 +649,7 @@ class _InspectionScreenState extends ConsumerState<InspectionScreen> {
           subtitle: 'Field ${_itemIndex + 1} out ${fields.length} • '
               'Section ${_sectionIndex + 1}/${sections.length}',
           percent: percent,
+          requiredLeft: requiredLeft,
         ),
         endDrawer: InspectionSectionsDrawer(
           sections: sections,
@@ -557,6 +709,7 @@ class _InspectionScreenState extends ConsumerState<InspectionScreen> {
     required String title,
     required String subtitle,
     required int percent,
+    required int requiredLeft,
   }) {
     return AppBar(
       backgroundColor: Colors.black,
@@ -580,11 +733,40 @@ class _InspectionScreenState extends ConsumerState<InspectionScreen> {
         ],
       ),
       actions: [
+        // The "% Complete" text doubles as the required-checklist button (no
+        // separate icon → saves app-bar width). Remaining required shows as a
+        // small inline badge.
         Center(
-          child: Padding(
-            padding: EdgeInsets.only(right: 4.w),
-            child: Text('$percent% Complete',
-                style: TextStyle(color: Colors.white60, fontSize: 12.sp)),
+          child: TextButton(
+            onPressed: _showCompletionTracker,
+            style: TextButton.styleFrom(
+              padding: EdgeInsets.symmetric(horizontal: 8.w),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('$percent% Complete',
+                    style: TextStyle(color: Colors.white60, fontSize: 12.sp)),
+                if (requiredLeft > 0) ...[
+                  SizedBox(width: 6.w),
+                  Container(
+                    padding:
+                        EdgeInsets.symmetric(horizontal: 6.w, vertical: 1.w),
+                    decoration: BoxDecoration(
+                      color: Colors.orange,
+                      borderRadius: BorderRadius.circular(10.r),
+                    ),
+                    child: Text('$requiredLeft',
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 11.sp,
+                            fontWeight: FontWeight.w700)),
+                  ),
+                ],
+              ],
+            ),
           ),
         ),
         IconButton(
@@ -1642,8 +1824,13 @@ class _MediaFieldHudState extends ConsumerState<_MediaFieldHud> {
               key: _key, section: widget.sectionName, savedOrRawPath: file.path),
         );
       case CaptureMode.video:
-        if (draft?.itemVideos[_key] != null) {
-          return const CapturedMediaPreview(mode: CaptureMode.video);
+        final v = draft?.itemVideos[_key];
+        if (v != null) {
+          return CapturedMediaPreview(
+            mode: CaptureMode.video,
+            videoPath: v,
+            onTapVideo: () => _showFullscreenVideo(v),
+          );
         }
         return _buildLiveVideoCamera();
       case CaptureMode.file:
@@ -1911,6 +2098,12 @@ class _MediaFieldHudState extends ConsumerState<_MediaFieldHud> {
           ),
         ),
       ),
+    ));
+  }
+
+  void _showFullscreenVideo(String path) {
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => VideoPreviewScreen(path: path),
     ));
   }
 
