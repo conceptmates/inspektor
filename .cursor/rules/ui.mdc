@@ -1,0 +1,14 @@
+---
+description: UI / widgets
+globs: lib/screens/**
+---
+
+# UI rules
+
+- **ScreenUtil** for all sizes/fonts: `.w`/`.h`/`.sp`/`.r`. No raw pixels, no `MediaQuery.size` for layout.
+- **No hardcoded colors** — use `Theme.of(context).colorScheme`. Exception: the intrinsically-dark camera viewfinder overlay.
+- `const` constructors wherever values are compile-time constant (not when using ScreenUtil `.w`/`.sp`).
+- Destructure theme once at top of `build`: `final theme = Theme.of(context); final colors = theme.colorScheme;`.
+- Keep UI dumb: logic in controllers. Buttons call `ref.read(...notifier).action()`.
+- Long lists → `ListView.builder`/`.separated`. Extract subtrees > ~20 lines into private widgets.
+- Loading via `LoadingWidget` (lottie), errors via `ErrorDisplayWidget`. Navigate with GoRouter `goNamed`/`pushNamed`.

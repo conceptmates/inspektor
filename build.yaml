@@ -1,0 +1,8 @@
+targets:
+  $default:
+    builders:
+      json_serializable:
+        options:
+          # toJson deep-converts nested objects to Maps — needed so offline
+          # records serialize fully for Hive JSON storage and round-trip cleanly.
+          explicit_to_json: true

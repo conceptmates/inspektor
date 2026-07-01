@@ -1,0 +1,12 @@
+---
+description: Routing (GoRouter)
+globs: lib/app/router/**
+---
+
+# Router rules
+
+- Single file `app/router/app_router.dart`: `RouteNames` + `RoutePaths` + `appRouterProvider`. No hardcoded path/name strings elsewhere.
+- Router is a Riverpod `Provider` so `redirect` can read auth. `_AuthRefreshNotifier` re-runs redirect on auth change.
+- Redirect: not `bootstrapped` → splash; not authenticated → login; authenticated on splash/login → home.
+- Bottom-nav tabs use `StatefulShellRoute.indexedStack` (Home/Reports/Profile). Full-screen flows (vehicle-details, inspection, success, history, offline) are top-level routes.
+- Navigate with `context.goNamed(RouteNames.x)`; pass typed args via `extra`.

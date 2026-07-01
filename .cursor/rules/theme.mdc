@@ -1,0 +1,11 @@
+---
+description: Theme
+globs: lib/themes/**,lib/utils/colors.dart
+---
+
+# Theme rules
+
+- **Dark-only** app: single `AppTheme.darkTheme` (Material 3); `MaterialApp.router` uses `themeMode: ThemeMode.dark`.
+- `AppColors` (raw `Color`s) are used ONLY to build `ThemeData`. In widgets use `Theme.of(context).colorScheme` — never `AppColors` or `Colors.*` directly (except the dark camera overlay).
+- Component themes (input, buttons) are defined once in `app_theme.dart`. Radius/padding centralized there.
+- To restyle, edit `app_theme.dart` / `utils/colors.dart` — not individual widgets.
