@@ -84,8 +84,18 @@ class ReportsController extends PaginatedInspectionsController {
 /// (the Pending tab). Drafts are served only by this filter.
 class DraftsController extends PaginatedInspectionsController {
   @override
-  Future<ApiResult<HistoryPage>> fetchPage(int page) =>
-      ref.read(inspectionRepositoryProvider).getMyHistory(page, status: 'draft');
+  Future<ApiResult<HistoryPage>> fetchPage(int page) async {
+    final res = await ref
+        .read(inspectionRepositoryProvider)
+        .getMyHistory(page, status: 'draft');
+    // Reverse chronological — newest drafts first.
+    if (res is ApiSuccess<HistoryPage>) {
+      final sorted = [...res.data.items]
+        ..sort((a, b) => b.date.compareTo(a.date));
+      return ApiSuccess((items: sorted, pagination: res.data.pagination));
+    }
+    return res;
+  }
 }
 
 final historyControllerProvider =
